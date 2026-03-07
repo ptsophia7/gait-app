@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PT 步態分析儀</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+    <style>
+        body { font-family: -apple-system, sans-serif; text-align: center; background: #1a1a1a; color: white; margin: 0; }
+        #video_container { position: relative; width: 100vw; height: 60vh; background: black; }
+        canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; }
+        .controls { padding: 20px; background: #2d2d2d; }
+        button { width: 80%; padding: 15px; font-size: 1.2rem; border-radius: 30px; border: none; font-weight: bold; }
+        #startBtn { background: #ff4757; color: white; }
+        #stopBtn { background: #2f3542; color: white; display: none; }
+        #report { background: white; color: #333; padding: 15px; border-radius: 10px; margin-top: 10px; text-align: left; display: none; }
+    </style>
+</head>
+<body>
+<div id="video_container">
+    <video id="input_video" style="display:none;" playsinline></video>
+    <canvas id="output_canvas"></canvas>
+</div>
+<div class="controls">
+    <button id="startBtn">🔴 開始錄影 (踏入起點)</button>
+    <button id="stopBtn">⏹ 停止錄影 (踏出終點)</button>
+    <div id="report"><h3 style="margin:0;">10MWT 報告</h3><div id="reportContent"></div></div>
+</div>
+<script>
+const videoElement = document.getElementById('input_video');
+const canvasElement = document.getElementById('output_canvas');
+const canvasCtx = canvasElement.getContext('2d');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const reportDiv = document.getElementById('report');
+let stepCount = 0, lastLeading = null, startTime = 0, isRecording = false;
+const THRESHOLD = 0.11, DISTANCE = 10.0;
+const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+pose.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+pose.onResults((results) => {
+    canvasElement.width = videoElement.videoWidth; canvasElement.height = videoElement.videoHeight;
+    canvasCtx.save(); canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+    if (results.poseLandmarks && isRecording) {
+        const lAnkle = results.pose_landmarks[27], rAnkle = results.pose_landmarks[28];
+        const dist = Math.abs(lAnkle.x - rAnkle.x);
+        if (dist > THRESHOLD) {
+            let currentLeading = lAnkle.x > rAnkle.x ? "L" : "R";
+            if (currentLeading !== lastLeading) { stepCount++; lastLeading = currentLeading; }
+        }
+        drawConnectors(canvasCtx, results.pose_landmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 3});
+    }
+    canvasCtx.restore();
+});
+navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
+    videoElement.srcObject = stream; videoElement.play();
+    async function loop() { await pose.send({image: videoElement}); requestAnimationFrame(loop); }
+    videoElement.onloadedmetadata = loop;
+});
+startBtn.onclick = () => { isRecording = true; startTime = performance.now(); stepCount = 0; startBtn.style.display = 'none'; stopBtn.style.display = 'inline-block'; reportDiv.style.display = 'none'; };
+stopBtn.onclick = () => {
+    isRecording = false; const duration = (performance.now() - startTime) / 1000;
+    stopBtn.style.display = 'none'; startBtn.style.display = 'inline-block'; reportDiv.style.display = 'block';
+    const velocity = DISTANCE / duration;
+    document.getElementById('reportContent').innerHTML = `<p>時間：${duration.toFixed(2)}s | 速度：${velocity.toFixed(2)}m/s | 步數：${stepCount}</p>`;
+};
+</script>
+</body>
+</html>
