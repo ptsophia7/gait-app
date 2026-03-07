@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT 步態分析系統</title>
+    <title>10MWT 診斷系統 V6.0</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <style>
@@ -16,15 +16,15 @@
         #startBtn { background: #34c759; color: white; }
         #stopBtn { background: #ff3b30; color: white; display: none; }
         #report { background: #fff; color: #333; padding: 15px; border-radius: 10px; display: none; font-size: 0.95rem; line-height: 1.5; border-left: 6px solid #007aff; }
-        #resultVideo { width: 100%; border-radius: 10px; margin-top: 10px; display: none; background: #000; }
+        #resultVideo { width: 100%; border-radius: 10px; margin-top: 10px; display: none; background: #000; border: 2px solid #007aff; }
         .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
 <div id="initScreen" class="init-screen">
-    <h2 style="margin-bottom: 20px;">10MWT 診斷系統 V4.0</h2>
-    <button onclick="startSystem()" style="background:#007aff; color:white; width:80%;">點擊啟動相機</button>
+    <h2 style="margin-bottom: 20px;">10MWT 診斷系統 V6.0</h2>
+    <button onclick="startSystem()" style="background:#007aff; color:white; width:80%;">啟動相機</button>
 </div>
 
 <div id="video_area">
@@ -35,12 +35,12 @@
 
 <div class="controls">
     <button id="startBtn">🔴 開始 10 米測試</button>
-    <button id="stopBtn">⏹ 停止並查看診斷</button>
+    <button id="stopBtn">⏹ 停止錄影並查看診斷</button>
     
     <div id="report">
         <div id="reportContent"></div>
         <video id="resultVideo" controls playsinline></video>
-        <p style="font-size: 0.8rem; color: #888; margin-top: 10px; text-align: center;">長按上方影片可儲存至相簿</p>
+        <p style="font-size: 0.8rem; color: #888; margin-top: 10px; text-align: center;">💡 長按影片即可儲存至相簿</p>
     </div>
 </div>
 
@@ -101,14 +101,13 @@ stopBtn.onclick = () => {
     isRecording = false; 
     mediaRecorder.stop();
     const duration = (performance.now() - startTime) / 1000;
-    const velocity = (DISTANCE / duration).toFixed(2);
-    const cadence = ((stepCount / duration) * 60).toFixed(1);
+    const velocity = (DISTANCE / duration);
     
     let diagnosis = "";
     let statusColor = "";
-    if (velocity >= 0.8) { diagnosis = "社區行走者"; statusColor = "#2ed573"; }
-    else if (velocity >= 0.4) { diagnosis = "受限社區行走者"; statusColor = "#ffa502"; }
-    else { diagnosis = "居家行走者"; statusColor = "#ff4757"; }
+    if (velocity >= 0.8) { diagnosis = "社區行走者 (Community Ambuator)"; statusColor = "#2ed573"; }
+    else if (velocity >= 0.4) { diagnosis = "受限社區行走者 (Limited Community)"; statusColor = "#ffa502"; }
+    else { diagnosis = "居家行走者 (Household)"; statusColor = "#ff4757"; }
 
     mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: 'video/mp4' });
@@ -117,12 +116,12 @@ stopBtn.onclick = () => {
         
         reportDiv.style.display = 'block';
         document.getElementById('reportContent').innerHTML = `
-            <div style="font-size:1.1rem; font-weight:bold; color:${statusColor};">測試結果：${diagnosis}</div>
-            <hr style="border:0.5px solid #eee;">
+            <div style="font-size:1.15rem; font-weight:bold; color:${statusColor}; margin-bottom:8px;">測試結果：${diagnosis}</div>
+            <hr style="border:0.5px solid #eee; margin:10px 0;">
             ⏱ 時間：${duration.toFixed(2)} 秒<br>
-            🚀 速度：${velocity} m/s<br>
+            🚀 速度：${velocity.toFixed(2)} m/s<br>
             👣 步數：${stepCount} 步<br>
-            ⚙️ 步頻：${cadence} steps/min
+            ⚙️ 步頻：${((stepCount/duration)*60).toFixed(1)} steps/min
         `;
     };
     stopBtn.style.display = 'none'; startBtn.style.display = 'block';
