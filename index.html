@@ -3,28 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT Gait Lab</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <title>10MWT Gait Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        #video_area { position: relative; width: 100%; height: 45vh; background: #111; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        #video_area { position: relative; width: 100%; height: 50vh; background: #111; flex-shrink: 0; }
         video, canvas { position: absolute; width: 100%; height: 100%; object-fit: contain; }
-        .overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 5px; border: 1px solid #34c759; z-index: 10; font-family: monospace; }
-        .controls { flex: 1; background: #1c1c1e; padding: 15px; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: bold; }
+        .overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 5px; border: 1px solid #34c759; z-index: 10; font-family: monospace; font-size: 1rem; }
+        .controls { flex: 1; background: #1c1c1e; padding: 20px; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; }
+        button { width: 100%; padding: 18px; border-radius: 15px; border: none; font-size: 1.2rem; font-weight: bold; transition: active 0.1s; }
         #startBtn { background: #34c759; color: white; }
         #stopBtn { background: #ff3b30; color: white; display: none; }
         #downloadBtn { background: #007aff; color: white; display: none; margin-top: auto; }
-        #report { background: #fff; color: #000; padding: 12px; border-radius: 10px; display: none; font-size: 0.9rem; line-height: 1.4; }
-        .init-overlay { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #report { background: #fff; color: #000; padding: 15px; border-radius: 12px; display: none; font-size: 1rem; line-height: 1.5; text-align: left; }
+        .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
-<div id="initOverlay" class="init-overlay">
-    <h2>PT 步態分析系統</h2>
-    <button onclick="startApp()" style="background:#007aff; color:white; width:80%;">點擊啟動相機</button>
+<div id="initScreen" class="init-screen">
+    <h2 style="margin-bottom: 20px;">臨床步態分析系統</h2>
+    <button onclick="startSystem()" style="background:#007aff; color:white; width:80%;">點擊啟動相機</button>
 </div>
 
 <div id="video_area">
@@ -34,10 +34,10 @@
 </div>
 
 <div class="controls">
-    <button id="startBtn">🔴 開始測量</button>
-    <button id="stopBtn">⏹ 停止並計算</button>
+    <button id="startBtn">🔴 開始 10 米測試</button>
+    <button id="stopBtn">⏹ 停止並生成報告</button>
     <div id="report"><div id="reportContent"></div></div>
-    <button id="downloadBtn">📥 儲存錄影至相簿</button>
+    <button id="downloadBtn">📥 儲存分析影片</button>
 </div>
 
 <script>
@@ -51,60 +51,38 @@ const reportDiv = document.getElementById('report');
 
 let stepCount = 0, lastLeading = null, startTime = 0, isRecording = false;
 let mediaRecorder, recordedChunks = [];
-const DISTANCE = 10.0; // 測試距離
+const DISTANCE = 10.0; 
 
-// 初始化 Pose 引擎
 const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
 pose.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-pose.onResults(onResults);
-
-function onResults(results) {
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+pose.onResults((results) => {
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-    
     if (results.poseLandmarks) {
         if (isRecording) {
             const lAnkle = results.poseLandmarks[27], rAnkle = results.poseLandmarks[28];
             const dist = Math.abs(lAnkle.x - rAnkle.x);
-            // 步數判別邏輯：偵測兩腳 X 軸交替
             if (dist > 0.1) {
                 let currentLeading = lAnkle.x > rAnkle.x ? "L" : "R";
-                if (currentLeading !== lastLeading) {
-                    stepCount++;
-                    lastLeading = currentLeading;
-                    document.getElementById('stepDisplay').innerText = stepCount;
-                }
+                if (currentLeading !== lastLeading) { stepCount++; lastLeading = currentLeading; document.getElementById('stepDisplay').innerText = stepCount; }
             }
         }
         drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
     }
     ctx.restore();
-}
+});
 
-async function startApp() {
-    document.getElementById('initOverlay').style.display = 'none';
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "environment", width: 640, height: 480 }, 
-            audio: false 
-        });
-        video.srcObject = stream;
-        
-        const recordStream = canvas.captureStream(30);
-        mediaRecorder = new MediaRecorder(recordStream, { mimeType: 'video/mp4' });
-        mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
-
-        async function detect() {
-            if (video.readyState >= 2) await pose.send({image: video});
-            requestAnimationFrame(detect);
-        }
-        detect();
-    } catch (e) {
-        alert("錯誤: " + e.message);
-    }
+async function startSystem() {
+    document.getElementById('initScreen').style.display = 'none';
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    video.srcObject = stream;
+    const recordStream = canvas.captureStream(30);
+    mediaRecorder = new MediaRecorder(recordStream, { mimeType: 'video/mp4' });
+    mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
+    async function detect() { if (video.readyState >= 2) await pose.send({image: video}); requestAnimationFrame(detect); }
+    detect();
 }
 
 startBtn.onclick = () => {
@@ -112,40 +90,25 @@ startBtn.onclick = () => {
     startBtn.style.display = 'none'; stopBtn.style.display = 'block';
     reportDiv.style.display = 'none'; downloadBtn.style.display = 'none';
     mediaRecorder.start();
-    const tick = () => {
-        if(!isRecording) return;
-        document.getElementById('timerDisplay').innerText = ((performance.now() - startTime) / 1000).toFixed(2);
-        requestAnimationFrame(tick);
-    };
+    const tick = () => { if(!isRecording) return; document.getElementById('timerDisplay').innerText = ((performance.now() - startTime) / 1000).toFixed(2); requestAnimationFrame(tick); };
     tick();
 };
 
 stopBtn.onclick = () => {
-    isRecording = false;
-    mediaRecorder.stop();
+    isRecording = false; mediaRecorder.stop();
     const duration = (performance.now() - startTime) / 1000;
     stopBtn.style.display = 'none'; startBtn.style.display = 'block';
-    
     const velocity = DISTANCE / duration;
-    const stepLength = stepCount > 0 ? DISTANCE / stepCount : 0;
-    const cadence = (stepCount / duration) * 60;
-
-    reportDiv.style.display = 'block';
-    downloadBtn.style.display = 'block';
+    reportDiv.style.display = 'block'; downloadBtn.style.display = 'block';
     document.getElementById('reportContent').innerHTML = `
+        <strong>測試結果：</strong><br>
         ⏱ 時間：${duration.toFixed(2)}s | 👣 步數：${stepCount}<br>
         🚀 速度：${velocity.toFixed(2)} m/s<br>
-        📏 步長：${stepLength.toFixed(2)} m | ⚙️ 步頻：${cadence.toFixed(1)}
+        📏 步長：${(DISTANCE/stepCount).toFixed(2)}m | ⚙️ 步頻：${((stepCount/duration)*60).toFixed(1)}
     `;
-
     mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunks, { type: 'video/mp4' });
-        const url = URL.createObjectURL(blob);
-        downloadBtn.onclick = () => {
-            const a = document.createElement('a');
-            a.href = url; a.download = `Gait_Test.mp4`;
-            a.click();
-        };
+        const url = URL.createObjectURL(new Blob(recordedChunks, { type: 'video/mp4' }));
+        downloadBtn.onclick = () => { const a = document.createElement('a'); a.href = url; a.download = 'Gait.mp4'; a.click(); };
     };
 };
 </script>
