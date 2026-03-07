@@ -174,4 +174,39 @@ startBtn.onclick = () => {
     reportDiv.style.display = 'none'; downloadBtn.style.display = 'none';
     mediaRecorder.start();
     timerInterval = setInterval(() => {
-        document.getElementById('timerDisplay').innerText = ((performance.now() - startTime)
+        document.getElementById('timerDisplay').innerText = ((performance.now() - startTime) / 1000).toFixed(2);
+    }, 100);
+};
+
+stopBtn.onclick = () => {
+    isRecording = false; clearInterval(timerInterval);
+    const duration = (performance.now() - startTime) / 1000;
+    mediaRecorder.stop();
+    stopBtn.style.display = 'none'; startBtn.style.display = 'block';
+    
+    const velocity = DISTANCE / duration;
+    const stepLength = stepCount > 0 ? DISTANCE / stepCount : 0;
+    const cadence = (stepCount / duration) * 60;
+
+    reportDiv.style.display = 'block';
+    downloadBtn.style.display = 'block';
+    document.getElementById('reportContent').innerHTML = `
+        <strong>【10MWT 報告】</strong><br>
+        ⏱ 時間：${duration.toFixed(2)} 秒 | 👣 步數：${stepCount}<br>
+        🚀 速度：${velocity.toFixed(2)} m/s<br>
+        📏 步長：${stepLength.toFixed(2)} m | ⚙️ 步頻：${cadence.toFixed(1)}
+    `;
+
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+        const videoURL = URL.createObjectURL(blob);
+        downloadBtn.onclick = () => {
+            const a = document.createElement('a');
+            a.href = videoURL; a.download = `Gait_${Date.now()}.mp4`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        };
+    };
+};
+</script>
+</body>
+</html>
