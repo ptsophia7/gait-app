@@ -3,59 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT 步態儀 - 修正版</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+    <title>10MWT 臨床步態儀</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        
-        /* 錄影畫面固定區域 */
-        #video_area { position: relative; width: 100%; height: 50vh; background: #111; flex-shrink: 0; }
-        #input_video { display: none; }
-        #output_canvas { width: 100%; height: 100%; object-fit: contain; }
-
-        /* 數據與按鈕區 */
-        .controls { 
-            flex: 1; 
-            background: #1c1c1e; 
-            padding: 15px; 
-            padding-bottom: calc(20px + env(safe-area-inset-bottom));
-            display: flex; 
-            flex-direction: column; 
-            gap: 10px;
-            overflow-y: auto;
-        }
-
-        .timer-overlay { 
-            position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); 
-            padding: 8px; border-radius: 5px; border: 1px solid #34c759; font-size: 0.9rem; z-index: 10;
-        }
-
-        button { width: 100%; padding: 15px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: bold; }
+        body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        #video_area { position: relative; width: 100%; height: 50vh; background: #000; flex-shrink: 0; display: flex; justify-content: center; align-items: center; }
+        video, canvas { position: absolute; width: 100%; height: 100%; object-fit: contain; }
+        .timer-box { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 5px; border: 1px solid #34c759; z-index: 10; font-family: monospace; }
+        .controls { flex: 1; background: #1c1c1e; padding: 15px; padding-bottom: calc(30px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; }
+        button { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: bold; }
         #startBtn { background: #34c759; color: white; }
         #stopBtn { background: #ff3b30; color: white; display: none; }
         #downloadBtn { background: #007aff; color: white; display: none; margin-top: auto; }
-        
-        #report { background: #fff; color: #000; padding: 12px; border-radius: 10px; text-align: left; display: none; line-height: 1.4; font-size: 0.95rem; }
+        #report { background: #fff; color: #000; padding: 12px; border-radius: 10px; text-align: left; display: none; font-size: 0.95rem; }
     </style>
 </head>
 <body>
 
 <div id="video_area">
-    <div class="timer-overlay">⏱ <span id="timerDisplay">0.00</span>s | 👣 <span id="stepDisplay">0</span></div>
-    <video id="input_video" playsinline muted></video>
+    <div class="timer-box">⏱ <span id="timerDisplay">0.00</span>s | 👣 <span id="stepDisplay">0</span></div>
+    <video id="input_video" playsinline muted autoplay></video>
     <canvas id="output_canvas"></canvas>
 </div>
 
 <div class="controls">
-    <button id="startBtn">🔴 開始錄影與分析</button>
-    <button id="stopBtn">⏹ 停止並生成結果</button>
-    
-    <div id="report">
-        <div id="reportContent"></div>
-    </div>
-    
-    <button id="downloadBtn">📥 下載本次分析影片</button>
+    <button id="startBtn">🔴 開始測試</button>
+    <button id="stopBtn">⏹ 停止並看報告</button>
+    <div id="report"><div id="reportContent"></div></div>
+    <button id="downloadBtn">📥 儲存分析影片</button>
 </div>
 
 <script>
@@ -67,63 +43,64 @@ const stopBtn = document.getElementById('stopBtn');
 const downloadBtn = document.getElementById('downloadBtn');
 const reportDiv = document.getElementById('report');
 
-let stepCount = 0, lastLeading = null, startTime = 0, isRecording = false, timerInterval;
+let stepCount = 0, lastLeading = null, startTime = 0, isRecording = false;
 let mediaRecorder, recordedChunks = [];
 const THRESHOLD = 0.11, DISTANCE = 10.0;
 
-// 初始化 MediaPipe
+// 1. 初始化 Pose 引擎
 const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
 pose.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+pose.onResults(onResults);
 
-pose.onResults((results) => {
-    // 關鍵修正：動態同步畫布與影片解析度
-    if (results.image) {
-        canvas.width = results.image.width;
-        canvas.height = results.image.height;
-        ctx.save();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-        
-        if (results.poseLandmarks && isRecording) {
-            const lAnkle = results.poseLandmarks[27], rAnkle = results.poseLandmarks[28];
-            const dist = Math.abs(lAnkle.x - rAnkle.x);
-            if (dist > THRESHOLD) {
-                let currentLeading = lAnkle.x > rAnkle.x ? "L" : "R";
-                if (currentLeading !== lastLeading) {
-                    stepCount++;
-                    lastLeading = currentLeading;
-                    document.getElementById('stepDisplay').innerText = stepCount;
-                }
-            }
-            drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
-        }
-        ctx.restore();
-    }
-});
-
-// 相機啟動邏輯
-async function setupCamera() {
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }, 
-        audio: false 
-    });
-    video.srcObject = stream;
-    await video.play();
+function onResults(results) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
     
-    // 錄影初始化
-    const recordStream = canvas.captureStream(30);
-    mediaRecorder = new MediaRecorder(recordStream, { mimeType: 'video/mp4;codecs=avc1' });
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
-
-    // 開始偵測迴圈
-    async function detectionLoop() {
-        await pose.send({image: video});
-        requestAnimationFrame(detectionLoop);
+    if (results.poseLandmarks && isRecording) {
+        const lAnkle = results.poseLandmarks[27], rAnkle = results.poseLandmarks[28];
+        const dist = Math.abs(lAnkle.x - rAnkle.x);
+        if (dist > THRESHOLD) {
+            let currentLeading = lAnkle.x > rAnkle.x ? "L" : "R";
+            if (currentLeading !== lastLeading) {
+                stepCount++;
+                lastLeading = currentLeading;
+                document.getElementById('stepDisplay').innerText = stepCount;
+            }
+        }
+        drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
     }
-    detectionLoop();
+    ctx.restore();
 }
 
-setupCamera().catch(err => alert("相機啟動失敗: " + err));
+// 2. 啟動相機 (iOS 關鍵)
+async function init() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment", width: 640, height: 480 }, 
+            audio: false 
+        });
+        video.srcObject = stream;
+        
+        // 錄影設定
+        const recordStream = canvas.captureStream(30);
+        mediaRecorder = new MediaRecorder(recordStream, { mimeType: 'video/mp4' });
+        mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
+
+        // 啟動分析迴圈
+        async function run() {
+            if (video.readyState >= 2) { await pose.send({image: video}); }
+            requestAnimationFrame(run);
+        }
+        run();
+    } catch (e) {
+        alert("相機啟動錯誤: " + e.message);
+    }
+}
+
+init();
 
 startBtn.onclick = () => {
     isRecording = true; stepCount = 0; recordedChunks = [];
@@ -131,13 +108,17 @@ startBtn.onclick = () => {
     startBtn.style.display = 'none'; stopBtn.style.display = 'block';
     reportDiv.style.display = 'none'; downloadBtn.style.display = 'none';
     mediaRecorder.start();
-    timerInterval = setInterval(() => {
+    
+    const timerTick = () => {
+        if(!isRecording) return;
         document.getElementById('timerDisplay').innerText = ((performance.now() - startTime) / 1000).toFixed(2);
-    }, 100);
+        requestAnimationFrame(timerTick);
+    };
+    timerTick();
 };
 
 stopBtn.onclick = () => {
-    isRecording = false; clearInterval(timerInterval);
+    isRecording = false;
     mediaRecorder.stop();
     const duration = (performance.now() - startTime) / 1000;
     stopBtn.style.display = 'none'; startBtn.style.display = 'block';
@@ -149,18 +130,19 @@ stopBtn.onclick = () => {
     reportDiv.style.display = 'block';
     downloadBtn.style.display = 'block';
     document.getElementById('reportContent').innerHTML = `
-        ⏱ 時間：${duration.toFixed(2)} 秒 | 👣 步數：${stepCount}<br>
+        <strong>分析成功</strong><br>
+        ⏱ 時間：${duration.toFixed(2)}s | 👣 步數：${stepCount}<br>
         🚀 速度：${velocity.toFixed(2)} m/s<br>
         📏 步長：${stepLength.toFixed(2)} m | ⚙️ 步頻：${cadence.toFixed(1)}
     `;
 
     mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: 'video/mp4' });
-        const videoURL = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
         downloadBtn.onclick = () => {
             const a = document.createElement('a');
-            a.href = videoURL; a.download = `Gait_${Date.now()}.mp4`;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            a.href = url; a.download = `Gait_${Date.now()}.mp4`;
+            a.click();
         };
     };
 };
