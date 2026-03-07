@@ -7,28 +7,77 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; background: #000; color: white; margin: 0; overflow: hidden; position: fixed; width: 100%; height: 100%; }
-        #container { position: relative; width: 100vw; height: 55vh; background: #000; }
-        canvas { width: 100%; height: 100%; object-fit: contain; }
-        .timer-overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; font-family: monospace; font-size: 1.1rem; border: 2px solid #34c759; z-index: 100; color: #fff; }
-        
-        /* 調整控制區高度，並增加下方邊距避免被遮擋 */
+        /* 修正整體高度邏輯 */
+        html, body { 
+            height: 100%; 
+            margin: 0; 
+            padding: 0; 
+            background: #000; 
+            color: white; 
+            font-family: -apple-system, sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 錄影畫面區：確保至少佔據 50% 的空間 */
+        #container { 
+            position: relative; 
+            flex: 1 1 50%; 
+            width: 100vw; 
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas { 
+            max-width: 100%; 
+            max-height: 100%; 
+            object-fit: contain; 
+        }
+
+        .timer-overlay { 
+            position: absolute; 
+            top: 15px; 
+            left: 15px; 
+            background: rgba(0,0,0,0.7); 
+            padding: 10px; 
+            border-radius: 8px; 
+            font-family: monospace; 
+            font-size: 1rem; 
+            border: 2px solid #34c759; 
+            z-index: 100; 
+        }
+
+        /* 按鈕與報告區：佔據剩餘空間，並處理 iOS 安全區域 */
         .controls { 
-            height: 45vh; 
-            padding: 15px 20px calc(20px + env(safe-area-inset-bottom)); 
+            flex: 0 0 auto;
             background: #1c1c1e; 
+            padding: 15px 20px;
+            padding-bottom: calc(25px + env(safe-area-inset-bottom)); 
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
-        button { width: 100%; padding: 16px; font-size: 1.1rem; border-radius: 12px; border: none; font-weight: bold; transition: 0.2s; flex-shrink: 0; }
+        button { 
+            width: 100%; 
+            padding: 14px; 
+            font-size: 1.1rem; 
+            border-radius: 12px; 
+            border: none; 
+            font-weight: bold; 
+            transition: active 0.1s;
+        }
+        
+        button:active { opacity: 0.7; }
+
         #startBtn { background: #34c759; color: white; }
         #stopBtn { background: #ff3b30; color: white; display: none; }
-        #downloadBtn { background: #007aff; color: white; display: none; margin-top: 5px; }
+        #downloadBtn { background: #007aff; color: white; display: none; }
         
-        /* 報告區塊增加最大高度限制，防止撐爆畫面 */
         #report { 
             background: #fff; 
             color: #000; 
@@ -36,12 +85,11 @@
             border-radius: 10px; 
             text-align: left; 
             display: none; 
-            font-size: 0.95rem; 
+            font-size: 0.9rem; 
             line-height: 1.4;
-            overflow-y: auto; 
-            flex-grow: 1; 
+            max-height: 120px;
+            overflow-y: auto;
         }
-        .norm-hint { font-size: 0.8rem; color: #666; border-top: 1px solid #eee; margin-top: 8px; padding-top: 5px; }
     </style>
 </head>
 <body>
@@ -58,7 +106,6 @@
     
     <div id="report">
         <div id="reportContent"></div>
-        <div class="norm-hint">常模：社區獨立行走需 > 0.8 m/s；安全過馬路需 > 1.2 m/s</div>
     </div>
     
     <button id="downloadBtn">📥 下載本次分析影片</button>
@@ -81,24 +128,31 @@ const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@medi
 pose.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
 
 pose.onResults((results) => {
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-    if (results.poseLandmarks && isRecording) {
-        const lAnkle = results.poseLandmarks[27], rAnkle = results.poseLandmarks[28];
-        const dist = Math.abs(lAnkle.x - rAnkle.x);
-        if (dist > THRESHOLD) {
-            let currentLeading = lAnkle.x > rAnkle.x ? "L" : "R";
-            if (currentLeading !== lastLeading) {
-                stepCount++;
-                lastLeading = currentLeading;
-                document.getElementById('stepDisplay').innerText = stepCount;
+    // 動態調整畫布解析度以符合影片
+    if (results.image) {
+        canvas.width = results.image.width;
+        canvas.height = results.image.height;
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+        
+        if (results.poseLandmarks) {
+            if (isRecording) {
+                const lAnkle = results.poseLandmarks[27], rAnkle = results.poseLandmarks[28];
+                const dist = Math.abs(lAnkle.x - rAnkle.x);
+                if (dist > THRESHOLD) {
+                    let currentLeading = lAnkle.x > rAnkle.x ? "L" : "R";
+                    if (currentLeading !== lastLeading) {
+                        stepCount++;
+                        lastLeading = currentLeading;
+                        document.getElementById('stepDisplay').innerText = stepCount;
+                    }
+                }
             }
+            drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
         }
-        drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
+        ctx.restore();
     }
-    ctx.restore();
 });
 
 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", frameRate: 30 }, audio: false })
@@ -120,41 +174,4 @@ startBtn.onclick = () => {
     reportDiv.style.display = 'none'; downloadBtn.style.display = 'none';
     mediaRecorder.start();
     timerInterval = setInterval(() => {
-        document.getElementById('timerDisplay').innerText = ((performance.now() - startTime) / 1000).toFixed(2);
-    }, 100);
-};
-
-stopBtn.onclick = () => {
-    isRecording = false; clearInterval(timerInterval);
-    const duration = (performance.now() - startTime) / 1000;
-    mediaRecorder.stop();
-    stopBtn.style.display = 'none'; startBtn.style.display = 'block';
-    
-    const velocity = DISTANCE / duration;
-    const stepLength = stepCount > 0 ? DISTANCE / stepCount : 0;
-    const cadence = (stepCount / duration) * 60;
-
-    reportDiv.style.display = 'block';
-    downloadBtn.style.display = 'block';
-    document.getElementById('reportContent').innerHTML = `
-        <strong>【10MWT 報告】</strong><br>
-        ⏱ 時間：${duration.toFixed(2)} 秒<br>
-        👣 步數：${stepCount} 步<br>
-        🚀 速度：${velocity.toFixed(2)} m/s<br>
-        📏 步長：${stepLength.toFixed(2)} m<br>
-        ⚙️ 步頻：${cadence.toFixed(1)} steps/min
-    `;
-
-    mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunks, { type: 'video/mp4' });
-        const videoURL = URL.createObjectURL(blob);
-        downloadBtn.onclick = () => {
-            const a = document.createElement('a');
-            a.href = videoURL; a.download = `Gait_${Date.now()}.mp4`;
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        };
-    };
-};
-</script>
-</body>
-</html>
+        document.getElementById('timerDisplay').innerText = ((performance.now() - startTime)
