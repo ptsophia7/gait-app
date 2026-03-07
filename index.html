@@ -3,27 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT 臨床步態同步攝影</title>
+    <title>10MWT 步態分析系統</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        #video_area { position: relative; width: 100%; height: 50vh; background: #000; }
+        #video_area { position: relative; width: 100%; height: 40vh; background: #000; flex-shrink: 0; }
         video, canvas { position: absolute; width: 100%; height: 100%; object-fit: contain; }
         .overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 5px; border: 1px solid #34c759; z-index: 10; font-family: monospace; }
-        .controls { flex: 1; background: #1c1c1e; padding: 20px; display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; }
-        button { width: 100%; padding: 20px; border-radius: 15px; border: none; font-size: 1.2rem; font-weight: bold; }
+        .controls { flex: 1; background: #1c1c1e; padding: 15px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        button { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: bold; }
         #startBtn { background: #34c759; color: white; }
         #stopBtn { background: #ff3b30; color: white; display: none; }
-        #report { background: #fff; color: #333; padding: 15px; border-radius: 12px; display: none; font-size: 1rem; line-height: 1.6; }
+        #report { background: #fff; color: #333; padding: 15px; border-radius: 10px; display: none; font-size: 0.95rem; line-height: 1.5; border-left: 6px solid #007aff; }
+        #resultVideo { width: 100%; border-radius: 10px; margin-top: 10px; display: none; background: #000; }
         .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
 <div id="initScreen" class="init-screen">
-    <h2 style="margin-bottom: 20px;">10MWT 步態分析 (V3.0)</h2>
-    <button onclick="startSystem()" style="background:#007aff; color:white; width:80%;">點擊啟動攝影</button>
+    <h2 style="margin-bottom: 20px;">10MWT 診斷系統 V4.0</h2>
+    <button onclick="startSystem()" style="background:#007aff; color:white; width:80%;">點擊啟動相機</button>
 </div>
 
 <div id="video_area">
@@ -33,10 +34,14 @@
 </div>
 
 <div class="controls">
-    <button id="startBtn">🔴 開始同步攝影與分析</button>
-    <button id="stopBtn">⏹ 停止錄影並查看結果</button>
-    <div id="report"><div id="reportContent"></div></div>
-    <p id="saveHint" style="display:none; font-size:0.9rem; color:#aaa; text-align:center;">停止後，請在開啟的影片畫面長按儲存至相簿。</p>
+    <button id="startBtn">🔴 開始 10 米測試</button>
+    <button id="stopBtn">⏹ 停止並查看診斷</button>
+    
+    <div id="report">
+        <div id="reportContent"></div>
+        <video id="resultVideo" controls playsinline></video>
+        <p style="font-size: 0.8rem; color: #888; margin-top: 10px; text-align: center;">長按上方影片可儲存至相簿</p>
+    </div>
 </div>
 
 <script>
@@ -46,6 +51,7 @@ const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const reportDiv = document.getElementById('report');
+const resultVideo = document.getElementById('resultVideo');
 
 let stepCount = 0, lastLeading = null, startTime = 0, isRecording = false;
 let mediaRecorder, recordedChunks = [];
@@ -85,8 +91,7 @@ async function startSystem() {
 startBtn.onclick = () => {
     isRecording = true; stepCount = 0; recordedChunks = []; startTime = performance.now();
     startBtn.style.display = 'none'; stopBtn.style.display = 'block';
-    reportDiv.style.display = 'none';
-    document.getElementById('saveHint').style.display = 'block';
+    reportDiv.style.display = 'none'; resultVideo.style.display = 'none';
     mediaRecorder.start();
     const tick = () => { if(!isRecording) return; document.getElementById('timerDisplay').innerText = ((performance.now() - startTime) / 1000).toFixed(2); requestAnimationFrame(tick); };
     tick();
@@ -96,20 +101,31 @@ stopBtn.onclick = () => {
     isRecording = false; 
     mediaRecorder.stop();
     const duration = (performance.now() - startTime) / 1000;
-    const velocity = DISTANCE / duration;
+    const velocity = (DISTANCE / duration).toFixed(2);
+    const cadence = ((stepCount / duration) * 60).toFixed(1);
     
-    // 臨床診斷判定
     let diagnosis = "";
-    if (velocity >= 0.8) diagnosis = "社區行走者 (具備穿越馬路與長距行走能力)";
-    else if (velocity >= 0.4) diagnosis = "受限社區行走者 (戶外行走可能需要輔具或體力有限)";
-    else diagnosis = "居家行走者 (功能侷限於室內，具高跌倒風險)";
-    
+    let statusColor = "";
+    if (velocity >= 0.8) { diagnosis = "社區行走者"; statusColor = "#2ed573"; }
+    else if (velocity >= 0.4) { diagnosis = "受限社區行走者"; statusColor = "#ffa502"; }
+    else { diagnosis = "居家行走者"; statusColor = "#ff4757"; }
+
     mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: 'video/mp4' });
-        const videoURL = URL.createObjectURL(blob);
-        // 此動作在 iOS Safari 會直接跳轉到影片播放器頁面
-        window.location.href = videoURL; 
+        resultVideo.src = URL.createObjectURL(blob);
+        resultVideo.style.display = 'block';
+        
+        reportDiv.style.display = 'block';
+        document.getElementById('reportContent').innerHTML = `
+            <div style="font-size:1.1rem; font-weight:bold; color:${statusColor};">測試結果：${diagnosis}</div>
+            <hr style="border:0.5px solid #eee;">
+            ⏱ 時間：${duration.toFixed(2)} 秒<br>
+            🚀 速度：${velocity} m/s<br>
+            👣 步數：${stepCount} 步<br>
+            ⚙️ 步頻：${cadence} steps/min
+        `;
     };
+    stopBtn.style.display = 'none'; startBtn.style.display = 'block';
 };
 </script>
 </body>
