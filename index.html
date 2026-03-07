@@ -3,38 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>10MWT 臨床分析儀 Pro</title>
+    <title>10MWT 臨床分析儀 Pro (iOS 相容版)</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; background: #000; color: white; margin: 0; overflow-x: hidden; }
-        #container { position: relative; width: 100vw; height: 65vh; background: #000; }
+        body { font-family: -apple-system, sans-serif; text-align: center; background: #000; color: white; margin: 0; overflow: hidden; }
+        #container { position: relative; width: 100vw; height: 60vh; background: #000; }
         canvas { width: 100%; height: 100%; object-fit: contain; }
-        .timer-overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 5px; font-family: monospace; font-size: 1.2rem; border: 1px solid #00ff00; }
-        .controls { height: 35vh; padding: 15px; background: #222; box-sizing: border-box; }
-        button { width: 45%; padding: 15px; font-size: 1rem; border-radius: 10px; border: none; font-weight: bold; margin: 5px; }
+        .timer-overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 5px; font-family: monospace; font-size: 1.1rem; border: 1px solid #00ff00; z-index: 10; }
+        .controls { height: 40vh; padding: 15px; background: #222; box-sizing: border-box; }
+        button { width: 90%; padding: 15px; font-size: 1.1rem; border-radius: 12px; border: none; font-weight: bold; margin: 5px 0; }
         #startBtn { background: #ff4757; color: white; }
         #stopBtn { background: #2f3542; color: white; display: none; }
-        #downloadBtn { background: #2ed573; color: white; display: none; width: 92%; }
-        #report { background: white; color: #333; padding: 15px; border-radius: 10px; margin-top: 10px; text-align: left; display: none; overflow-y: auto; max-height: 25vh; }
-        .norm-box { border-left: 5px solid #007bff; padding-left: 10px; margin-top: 10px; font-size: 0.85rem; background: #f8f9fa; }
+        #downloadBtn { background: #009432; color: white; display: none; }
+        #report { background: white; color: #333; padding: 15px; border-radius: 10px; margin-top: 10px; text-align: left; display: none; overflow-y: auto; max-height: 22vh; }
     </style>
 </head>
 <body>
 
 <div id="container">
-    <div class="timer-overlay">時間: <span id="timerDisplay">0.00</span>s<br>步數: <span id="stepDisplay">0</span></div>
+    <div class="timer-overlay">⏱ <span id="timerDisplay">0.00</span>s | 👣 <span id="stepDisplay">0</span></div>
     <video id="input_video" style="display:none;" playsinline muted></video>
     <canvas id="output_canvas"></canvas>
 </div>
 
 <div class="controls">
-    <button id="startBtn">🔴 開始測試</button>
-    <button id="stopBtn">⏹ 停止並計算</button>
-    <button id="downloadBtn">📥 下載本次分析影片</button>
+    <button id="startBtn">🔴 開始錄影與測試</button>
+    <button id="stopBtn">⏹ 停止並生成報告</button>
+    <button id="downloadBtn">📥 儲存分析影片至相簿 (MP4)</button>
     
     <div id="report">
-        <h3 style="margin:0 0 5px 0;">10MWT 分析結果</h3>
+        <h3 style="margin:0 0 5px 0; color:#007bff;">10MWT 分析結果</h3>
         <div id="reportContent"></div>
     </div>
 </div>
@@ -53,7 +52,7 @@ let mediaRecorder, recordedChunks = [];
 const THRESHOLD = 0.11, DISTANCE = 10.0;
 
 const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-pose.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+pose.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
 
 pose.onResults((results) => {
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
@@ -74,21 +73,27 @@ pose.onResults((results) => {
                 }
             }
         }
-        drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 3});
-        drawLandmarks(ctx, [results.poseLandmarks[27], results.poseLandmarks[28]], {color: '#FF0000', lineWidth: 2});
+        drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
     }
     ctx.restore();
 });
 
-navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 }, audio: false })
+// 相機與錄影初始化
+navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", frameRate: { ideal: 30 } }, audio: false })
     .then(stream => {
         video.srcObject = stream;
         video.play();
-        const streamToRecord = canvas.captureStream(30);
-        mediaRecorder = new MediaRecorder(streamToRecord, { mimeType: 'video/webm;codecs=vp8' });
-        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
-        mediaRecorder.onstop = saveVideo;
+        
+        // 選擇 iOS 支援的錄影格式
+        const options = { mimeType: 'video/mp4' };
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+            options.mimeType = 'video/quicktime'; // iOS Safari 備案
+        }
 
+        const streamToRecord = canvas.captureStream(30);
+        mediaRecorder = new MediaRecorder(streamToRecord, options);
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+        
         async function loop() {
             await pose.send({image: video});
             requestAnimationFrame(loop);
@@ -105,7 +110,7 @@ startBtn.onclick = () => {
     timerInterval = setInterval(() => {
         const elapsed = (performance.now() - startTime) / 1000;
         document.getElementById('timerDisplay').innerText = elapsed.toFixed(2);
-    }, 50);
+    }, 100);
 };
 
 stopBtn.onclick = () => {
@@ -121,33 +126,24 @@ function showReport(duration) {
     const stepLength = stepCount > 0 ? DISTANCE / stepCount : 0;
     const cadence = (stepCount / duration) * 60;
     
-    let speedEval = velocity < 0.8 ? "⚠️ 速度偏慢 (社區行走受限)" : "✅ 速度正常";
-    if (velocity < 0.4) speedEval = "❌ 嚴重受限 (居家行走等級)";
-
     reportDiv.style.display = 'block';
     downloadBtn.style.display = 'block';
     document.getElementById('reportContent').innerHTML = `
-        <b>總時間：</b>${duration.toFixed(2)} 秒<br>
-        <b>總步數：</b>${stepCount} 步<br>
-        <b>行走速度：</b>${velocity.toFixed(2)} m/s (${speedEval})<br>
-        <b>平均步長：</b>${stepLength.toFixed(2)} 公尺<br>
-        <b>步頻：</b>${cadence.toFixed(1)} steps/min
-        <div class="norm-box">
-            <b>常模參考：</b><br>
-            • 獨立過馬路速度：> 1.2 m/s<br>
-            • 社區行走門檻：0.8 m/s<br>
-            • 一般成人步頻：90-120 steps/min
-        </div>
+        <b>時間：</b>${duration.toFixed(2)} 秒 | <b>步數：</b>${stepCount} 步<br>
+        <b>速度：</b>${velocity.toFixed(2)} m/s<br>
+        <b>步長：</b>${stepLength.toFixed(2)} m | <b>步頻：</b>${cadence.toFixed(1)}<br>
+        <p style="font-size:0.8rem; color:#666; border-top:1px solid #ddd; padding-top:5px;">
+        常模對照：社區行走門檻 0.8 m/s；安全過馬路 1.2 m/s</p>
     `;
-}
-
-function saveVideo() {
+    
     downloadBtn.onclick = () => {
-        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const blob = new Blob(recordedChunks, { type: 'video/mp4' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `Gait_Test_${new Date().getTime()}.webm`;
+        a.href = url;
+        a.download = `Gait_${new Date().toLocaleTimeString()}.mp4`;
         a.click();
+        window.URL.revokeObjectURL(url);
     };
 }
 </script>
