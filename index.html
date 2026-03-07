@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT 臨床步態同步錄影</title>
+    <title>10MWT 臨床步態同步攝影</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <style>
@@ -22,7 +22,7 @@
 <body>
 
 <div id="initScreen" class="init-screen">
-    <h2 style="margin-bottom: 20px;">10MWT 步態分析儀</h2>
+    <h2 style="margin-bottom: 20px;">10MWT 步態分析 (V3.0)</h2>
     <button onclick="startSystem()" style="background:#007aff; color:white; width:80%;">點擊啟動攝影</button>
 </div>
 
@@ -36,7 +36,7 @@
     <button id="startBtn">🔴 開始同步攝影與分析</button>
     <button id="stopBtn">⏹ 停止錄影並查看結果</button>
     <div id="report"><div id="reportContent"></div></div>
-    <p id="saveHint" style="display:none; font-size:0.8rem; color:#aaa; text-align:center;">停止後，影片將自動開啟，長按影片即可儲存。</p>
+    <p id="saveHint" style="display:none; font-size:0.9rem; color:#aaa; text-align:center;">停止後，請在開啟的影片畫面長按儲存至相簿。</p>
 </div>
 
 <script>
@@ -98,12 +98,16 @@ stopBtn.onclick = () => {
     const duration = (performance.now() - startTime) / 1000;
     const velocity = DISTANCE / duration;
     
-    let diagnosis = velocity >= 0.8 ? "社區行走者" : (velocity >= 0.4 ? "受限社區行走者" : "居家行走者");
+    // 臨床診斷判定
+    let diagnosis = "";
+    if (velocity >= 0.8) diagnosis = "社區行走者 (具備穿越馬路與長距行走能力)";
+    else if (velocity >= 0.4) diagnosis = "受限社區行走者 (戶外行走可能需要輔具或體力有限)";
+    else diagnosis = "居家行走者 (功能侷限於室內，具高跌倒風險)";
     
     mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: 'video/mp4' });
         const videoURL = URL.createObjectURL(blob);
-        // 核心改動：停止後立即自動導向影片
+        // 此動作在 iOS Safari 會直接跳轉到影片播放器頁面
         window.location.href = videoURL; 
     };
 };
