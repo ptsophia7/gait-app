@@ -1,30 +1,34 @@
-<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT 診斷系統 V6.0</title>
+    <title>10MWT 臨床診斷系統 V7.0</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        #video_area { position: relative; width: 100%; height: 40vh; background: #000; flex-shrink: 0; }
+        #video_area { position: relative; width: 100%; height: 55vh; background: #000; flex-shrink: 0; border-bottom: 2px solid #333; }
         video, canvas { position: absolute; width: 100%; height: 100%; object-fit: contain; }
-        .overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 5px; border: 1px solid #34c759; z-index: 10; font-family: monospace; }
-        .controls { flex: 1; background: #1c1c1e; padding: 15px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
-        button { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: bold; }
+        .overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; border: 1px solid #34c759; z-index: 10; font-family: monospace; font-size: 1.1rem; }
+        .controls { flex: 1; background: #1c1c1e; padding: 15px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+        input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #2c2c2e; color: #fff; font-size: 1rem; margin-bottom: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: bold; transition: 0.2s; }
         #startBtn { background: #34c759; color: white; }
         #stopBtn { background: #ff3b30; color: white; display: none; }
-        #report { background: #fff; color: #333; padding: 15px; border-radius: 10px; display: none; font-size: 0.95rem; line-height: 1.5; border-left: 6px solid #007aff; }
-        #resultVideo { width: 100%; border-radius: 10px; margin-top: 10px; display: none; background: #000; border: 2px solid #007aff; }
-        .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #emailBtn { background: #007aff; color: white; margin-top: 10px; display: none; }
+        #report { background: #fff; color: #333; padding: 15px; border-radius: 10px; display: none; font-size: 1rem; line-height: 1.6; border-left: 8px solid #007aff; }
+        .notice { color: #ff453a; font-size: 0.85rem; text-align: center; margin-bottom: 10px; font-weight: bold; }
+        .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+        hr { border: 0; border-top: 1px solid #eee; margin: 10px 0; }
     </style>
 </head>
 <body>
 
 <div id="initScreen" class="init-screen">
-    <h2 style="margin-bottom: 20px;">10MWT 診斷系統 V6.0</h2>
-    <button onclick="startSystem()" style="background:#007aff; color:white; width:80%;">啟動相機</button>
+    <h2 style="margin-bottom: 10px;">10MWT 步態診斷系統</h2>
+    <p class="notice">⚠️ 注意：請先從控制中心開啟「螢幕錄影」<br>以便保存分析過程與診斷報告</p>
+    <input type="text" id="patientIdInput" placeholder="請輸入病歷號 (Chart No.)">
+    <button onclick="startSystem()" style="background:#007aff; color:white; width:90%; margin-top:15px;">啟動臨床相機</button>
 </div>
 
 <div id="video_area">
@@ -34,13 +38,12 @@
 </div>
 
 <div class="controls">
-    <button id="startBtn">🔴 開始 10 米測試</button>
-    <button id="stopBtn">⏹ 停止錄影並查看診斷</button>
+    <button id="startBtn">🔴 開始 10 米步行測試</button>
+    <button id="stopBtn">⏹ 停止並查看診斷報告</button>
     
     <div id="report">
         <div id="reportContent"></div>
-        <video id="resultVideo" controls playsinline></video>
-        <p style="font-size: 0.8rem; color: #888; margin-top: 10px; text-align: center;">💡 長按影片即可儲存至相簿</p>
+        <button id="emailBtn">📧 傳送結果至指定 Email</button>
     </div>
 </div>
 
@@ -50,15 +53,17 @@ const canvas = document.getElementById('output_canvas');
 const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
+const emailBtn = document.getElementById('emailBtn');
 const reportDiv = document.getElementById('report');
-const resultVideo = document.getElementById('resultVideo');
+const patientIdInput = document.getElementById('patientIdInput');
 
 let stepCount = 0, lastLeading = null, startTime = 0, isRecording = false;
-let mediaRecorder, recordedChunks = [];
+let patientId = "";
 const DISTANCE = 10.0; 
 
 const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
 pose.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+
 pose.onResults((results) => {
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     ctx.save(); ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -78,53 +83,63 @@ pose.onResults((results) => {
 });
 
 async function startSystem() {
+    patientId = patientIdInput.value || "未註記";
     document.getElementById('initScreen').style.display = 'none';
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
     video.srcObject = stream;
-    const recordStream = canvas.captureStream(30);
-    mediaRecorder = new MediaRecorder(recordStream, { mimeType: 'video/mp4;codecs=avc1' });
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
     async function detect() { if (video.readyState >= 2) await pose.send({image: video}); requestAnimationFrame(detect); }
     detect();
 }
 
 startBtn.onclick = () => {
-    isRecording = true; stepCount = 0; recordedChunks = []; startTime = performance.now();
+    isRecording = true; stepCount = 0; startTime = performance.now();
     startBtn.style.display = 'none'; stopBtn.style.display = 'block';
-    reportDiv.style.display = 'none'; resultVideo.style.display = 'none';
-    mediaRecorder.start();
+    reportDiv.style.display = 'none'; emailBtn.style.display = 'none';
     const tick = () => { if(!isRecording) return; document.getElementById('timerDisplay').innerText = ((performance.now() - startTime) / 1000).toFixed(2); requestAnimationFrame(tick); };
     tick();
 };
 
+let finalReportData = ""; // 存儲郵件內容
+
 stopBtn.onclick = () => {
     isRecording = false; 
-    mediaRecorder.stop();
     const duration = (performance.now() - startTime) / 1000;
     const velocity = (DISTANCE / duration);
     
     let diagnosis = "";
     let statusColor = "";
-    if (velocity >= 0.8) { diagnosis = "社區行走者 (Community Ambuator)"; statusColor = "#2ed573"; }
-    else if (velocity >= 0.4) { diagnosis = "受限社區行走者 (Limited Community)"; statusColor = "#ffa502"; }
+    if (velocity >= 0.8) { diagnosis = "社區行走者 (Community)"; statusColor = "#2ed573"; }
+    else if (velocity >= 0.4) { diagnosis = "受限社區行走者 (Limited)"; statusColor = "#ffa502"; }
     else { diagnosis = "居家行走者 (Household)"; statusColor = "#ff4757"; }
 
-    mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunks, { type: 'video/mp4' });
-        resultVideo.src = URL.createObjectURL(blob);
-        resultVideo.style.display = 'block';
-        
-        reportDiv.style.display = 'block';
-        document.getElementById('reportContent').innerHTML = `
-            <div style="font-size:1.15rem; font-weight:bold; color:${statusColor}; margin-bottom:8px;">測試結果：${diagnosis}</div>
-            <hr style="border:0.5px solid #eee; margin:10px 0;">
-            ⏱ 時間：${duration.toFixed(2)} 秒<br>
-            🚀 速度：${velocity.toFixed(2)} m/s<br>
-            👣 步數：${stepCount} 步<br>
-            ⚙️ 步頻：${((stepCount/duration)*60).toFixed(1)} steps/min
-        `;
-    };
+    reportDiv.style.display = 'block';
+    emailBtn.style.display = 'block';
+    
+    const reportHTML = `
+        <div style="font-size:0.9rem; color:#666;">病歷號：${patientId}</div>
+        <div style="font-size:1.2rem; font-weight:bold; color:${statusColor};">診斷：${diagnosis}</div>
+        <hr>
+        ⏱ 測試用時：${duration.toFixed(2)} 秒<br>
+        🚀 步行速度：${velocity.toFixed(2)} m/s<br>
+        👣 總計步數：${stepCount} 步<br>
+        ⚙️ 步頻平均：${((stepCount/duration)*60).toFixed(1)} steps/min<br>
+        📏 平均步長：${(DISTANCE/stepCount).toFixed(2)} m/step
+        <hr>
+        <div style="font-size:0.85rem; color:#555;">結語：受試者目前速度屬於${diagnosis}範疇，建議參考此數據進行後續康復訓練規劃。</div>
+    `;
+    document.getElementById('reportContent').innerHTML = reportHTML;
+
+    // 準備 Email 文字內容
+    finalReportData = `10MWT 測試報告\n病歷號：${patientId}\n診斷：${diagnosis}\n時間：${duration.toFixed(2)}s\n速度：${velocity.toFixed(2)}m/s\n步數：${stepCount}\n步頻：${((stepCount/duration)*60).toFixed(1)} steps/min`;
+
     stopBtn.style.display = 'none'; startBtn.style.display = 'block';
+};
+
+emailBtn.onclick = () => {
+    const targetEmail = "請輸入接收信箱"; // 您可以將此處改為您的固定 Email
+    const subject = encodeURIComponent(`步態分析報告 - 病歷號: ${patientId}`);
+    const body = encodeURIComponent(finalReportData);
+    window.location.href = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
 };
 </script>
 </body>
