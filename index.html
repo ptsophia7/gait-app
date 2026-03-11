@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT 臨床系統 V10.0</title>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <title>10MWT 臨床系統 V11.0</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         #video_area { position: relative; width: 100%; height: 50vh; background: #000; flex-shrink: 0; border-bottom: 2px solid #333; }
-        video, canvas { position: absolute; width: 100%; height: 100%; object-fit: contain; }
+        video { width: 100%; height: 100%; object-fit: contain; }
         .overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; border: 1px solid #34c759; z-index: 10; font-family: monospace; }
         .controls { flex: 1; background: #1c1c1e; padding: 15px 20px calc(25px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
         input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #2c2c2e; color: #fff; font-size: 1rem; box-sizing: border-box; }
@@ -17,61 +15,56 @@
         #startBtn { background: #34c759; color: white; }
         #stopBtn { background: #ff3b30; color: white; display: none; }
         #report { background: #fff; color: #333; padding: 20px; border-radius: 12px; display: none; font-size: 0.95rem; line-height: 1.6; }
-        .notice-box { background: rgba(255, 69, 58, 0.1); border: 1px solid #ff453a; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
-        .notice-title { color: #ff453a; font-weight: bold; font-size: 1.1rem; display: block; margin-bottom: 5px; text-align: center; }
-        .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px; }
+        .notice-banner { background: #ff453a; color: white; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 0.9rem; }
+        .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px; text-align: center; }
+        .trial-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: #555; border-bottom: 1px dashed #ddd; padding: 3px 0; }
         .result-card { border-left: 6px solid #007aff; padding-left: 15px; margin: 10px 0; background: #f0f7ff; padding: 10px; border-radius: 0 8px 8px 0; }
-        .ref-section { font-size: 0.8rem; color: #666; background: #f2f2f7; padding: 12px; border-radius: 8px; margin-top: 10px; border: 1px solid #e5e5ea; }
+        .ref-footer { font-size: 0.75rem; color: #8e8e93; margin-top: 10px; border-top: 1px solid #eee; pt: 5px; }
     </style>
 </head>
 <body>
 
 <div id="initScreen" class="init-screen">
-    <div class="notice-box">
-        <span class="notice-title">⚠️ 注意事項</span>
-        <p style="margin:0; font-size:0.95rem; text-align:center;">請先從控制中心開啟「螢幕錄影」<br>以便保存分析過程與診斷報告。</p>
-    </div>
+    <div class="notice-banner">💡 提示：需先開啟「螢幕錄影」才能儲存錄影檔</div>
+    <h2 style="margin-top:0;">10MWT 臨床評估</h2>
     <input type="text" id="patientIdInput" placeholder="請輸入病歷號 (Chart No.)" style="margin-bottom: 10px;">
     <select id="trialCountSelect" style="margin-bottom: 20px;">
         <option value="1">測試 1 次</option>
-        <option value="2">測試 2 次 (計算平均)</option>
-        <option value="3" selected>測試 3 次 (計算平均)</option>
+        <option value="2">測試 2 次 (平均值)</option>
+        <option value="3" selected>測試 3 次 (平均值)</option>
     </select>
-    <button onclick="startSystem()" style="background:#007aff; color:white; width:100%;">啟動臨床評估</button>
+    <button onclick="startSystem()" style="background:#007aff; color:white;">啟動相機</button>
 </div>
 
 <div id="video_area">
     <div class="overlay">
-        <b id="trialDisplay" style="color:#34c759;">準備中</b><br>
-        ⏱ <span id="timerDisplay" style="font-size:1.3rem;">0.00</span> s
+        <span id="trialDisplay" style="color:#34c759; font-weight:bold;">準備中</span><br>
+        ⏱ <span id="timerDisplay" style="font-size:1.4rem;">0.00</span> s
     </div>
     <video id="input_video" playsinline muted autoplay></video>
-    <canvas id="output_canvas"></canvas>
 </div>
 
 <div class="controls">
-    <button id="startBtn">🔴 開始測試</button>
-    <button id="stopBtn">⏹ 停止測試並記錄</button>
+    <button id="startBtn">🔴 開始計時</button>
+    <button id="stopBtn">⏹ 停止並紀錄步數</button>
     
     <div id="stepInputArea" style="display:none; background:#2c2c2e; padding:15px; border-radius:10px;">
         <label id="stepLabel" style="color:#34c759; font-weight:bold;"></label>
         <div style="display:flex; gap:10px; margin-top:10px;">
-            <input type="number" id="manualSteps" placeholder="步數" pattern="\d*">
-            <button onclick="recordTrial()" style="background:#007aff; width:40%; padding:10px;">下一步</button>
+            <input type="number" id="manualSteps" placeholder="輸入步數" pattern="\d*">
+            <button onclick="recordTrial()" style="background:#007aff; width:40%; padding:10px;">確認</button>
         </div>
     </div>
 
     <div id="report">
         <div id="reportContent"></div>
-        <button id="emailBtn" style="background:#007aff; color:white; margin-top:10px;">📧 寄送數據至 Email</button>
+        <button id="emailBtn" style="background:#007aff; color:white; margin-top:10px;">📧 寄送詳細數據</button>
         <button onclick="location.reload()" style="background:#8e8e93; color:white; margin-top:10px; padding:10px;">新病歷測試</button>
     </div>
 </div>
 
 <script>
 const video = document.getElementById('input_video');
-const canvas = document.getElementById('output_canvas');
-const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const reportDiv = document.getElementById('report');
@@ -82,24 +75,12 @@ let currentTrial = 1, totalTrials = 1;
 let trialData = []; 
 const DISTANCE = 10.0;
 
-const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-pose.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.5 });
-pose.onResults((results) => {
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    ctx.save(); ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-    if (results.poseLandmarks) drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 3});
-    ctx.restore();
-});
-
 async function startSystem() {
     totalTrials = parseInt(document.getElementById('trialCountSelect').value);
     document.getElementById('initScreen').style.display = 'none';
-    document.getElementById('trialDisplay').innerText = `Round: 1 / ${totalTrials}`;
+    document.getElementById('trialDisplay').innerText = `Trial: 1 / ${totalTrials}`;
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
     video.srcObject = stream;
-    async function detect() { if (video.readyState >= 2) await pose.send({image: video}); requestAnimationFrame(detect); }
-    detect();
 }
 
 startBtn.onclick = () => {
@@ -126,7 +107,7 @@ function recordTrial() {
 
     if (currentTrial < totalTrials) {
         currentTrial++;
-        document.getElementById('trialDisplay').innerText = `Round: ${currentTrial} / ${totalTrials}`;
+        document.getElementById('trialDisplay').innerText = `Trial: ${currentTrial} / ${totalTrials}`;
         stepInputArea.style.display = 'none';
         startBtn.style.display = 'block';
         document.getElementById('timerDisplay').innerText = "0.00";
@@ -141,24 +122,37 @@ function showFinalReport() {
     const avgSteps = trialData.reduce((a, b) => a + b.steps, 0) / totalTrials;
     const avgVel = DISTANCE / avgDur;
     
-    let amb = avgVel < 0.4 ? "居家行走 (Household)" : (avgVel <= 0.8 ? "受限社區行走 (Limited Community)" : "社區行走 (Community)");
-    let risk = avgVel < 0.7 ? "⚠️ 高跌倒/住院/依賴風險" : "✅ 跌倒風險低於警戒值";
+    let amb = avgVel < 0.4 ? "居家行走" : (avgVel <= 0.8 ? "受限社區行走" : "社區行走");
+    
+    let trialDetailsHTML = trialData.map((d, i) => `
+        <div class="trial-row">
+            <span>測試 ${i+1}:</span>
+            <span>${d.duration.toFixed(2)}s | ${d.steps}步 | ${(DISTANCE/d.duration).toFixed(2)}m/s</span>
+        </div>
+    `).join('');
 
     let reportHTML = `
-        <div style="font-size:0.8rem; color:#8e8e93; margin-bottom:5px;">病歷號：${pid} (平均自 ${totalTrials} 次測試)</div>
+        <div style="font-size:0.8rem; color:#8e8e93;">病歷號：${pid}</div>
+        <div style="margin-top:10px; font-weight:bold; color:#007aff;">每次測試原始數值：</div>
+        ${trialDetailsHTML}
+        
         <div class="result-card">
-            <b style="font-size:1.1rem; color:#007aff;">平均速度：${avgVel.toFixed(2)} m/s</b><br>
+            <b style="font-size:1.1rem;">平均步速：${avgVel.toFixed(2)} m/s</b><br>
             <b>移動分級：${amb}</b>
         </div>
-        <div style="font-weight:bold; color:${avgVel < 0.7 ? '#ff453a' : '#34c759'};">${risk}</div>
-        <hr>
-        👣 平均步頻：${((avgSteps/avgDur)*60).toFixed(1)} steps/min<br>
-        📏 平均步長：${(DISTANCE/avgSteps).toFixed(2)} m/step
-        <div class="ref-section">
-            <b>【引用文獻: Physiopedia / NeuroPT (ANPT)】</b><br>
-            • 中風速度切點: <0.4(居家), 0.4-0.8(受限社區), >0.8(社區)<br>
-            • 步速 <0.7 m/s 為老年人健康衰退與住院風險之預測指標。<br>
-            • 臨床標準建議：步速 <1.0 m/s 應列為重點康復追蹤對象。
+        
+        <div style="font-weight:bold; color:${avgVel < 0.7 ? '#ff453a' : '#34c759'};">
+            ${avgVel < 0.7 ? '⚠️ 高跌倒/住院風險' : '✅ 跌倒風險較低'}
+        </div>
+
+        <div style="font-size:0.85rem; margin-top:10px;">
+            👣 平均步頻：${((avgSteps/avgDur)*60).toFixed(1)} steps/min<br>
+            📏 平均步長：${(DISTANCE/avgSteps).toFixed(2)} m/step
+        </div>
+
+        <div class="ref-footer">
+            Reference: Physiopedia / neuropt.org (ANPT)<br>
+            中風分級: <0.4(居家), 0.4-0.8(受限社區), >0.8(社區)
         </div>
     `;
     
@@ -167,8 +161,8 @@ function showFinalReport() {
     reportDiv.style.display = 'block';
 
     document.getElementById('emailBtn').onclick = () => {
-        const mailBody = `10MWT 臨床報告\n病歷號：${pid}\n平均步速：${avgVel.toFixed(2)} m/s\n分級：${amb}\n步頻：${((avgSteps/avgDur)*60).toFixed(1)} steps/min\n步長：${(DISTANCE/avgSteps).toFixed(2)} m`;
-        window.location.href = `mailto:?subject=步態評估報告_${pid}&body=${encodeURIComponent(mailBody)}`;
+        const mailBody = `10MWT 報告\n病歷號：${pid}\n平均速度：${avgVel.toFixed(2)} m/s\n分級：${amb}\n數據明細：\n${trialData.map((d,i)=>`T${i+1}: ${d.duration.toFixed(2)}s, ${d.steps}步`).join('\n')}`;
+        window.location.href = `mailto:?subject=10MWT_Report_${pid}&body=${encodeURIComponent(mailBody)}`;
     };
 }
 </script>
