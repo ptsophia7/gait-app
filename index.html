@@ -1,178 +1,219 @@
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT 臨床診斷系統 V15.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TUG 專業評估系統</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        #video_area { position: relative; width: 100%; height: 45vh; background: #000; flex-shrink: 0; border-bottom: 2px solid #333; }
-        video { width: 100%; height: 100%; object-fit: contain; }
-        .overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 12px; border-radius: 8px; border: 1px solid #34c759; z-index: 10; font-family: monospace; }
-        .controls { flex: 1; background: #1c1c1e; padding: 15px 20px calc(25px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
-        input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #2c2c2e; color: #fff; font-size: 1rem; box-sizing: border-box; }
-        button { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: bold; }
-        #startBtn { background: #34c759; color: white; }
-        #stopBtn { background: #ff3b30; color: white; display: none; }
-        #report { background: #fff; color: #333; padding: 20px; border-radius: 12px; display: none; font-size: 0.9rem; line-height: 1.5; text-align: left; }
-        .notice-banner { background: #ff453a; color: white; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 0.85rem; }
-        .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px; text-align: center; }
-        .trial-record { background: #f8f9fa; border: 1px solid #e0e0e0; padding: 10px; border-radius: 8px; margin: 8px 0; font-size: 0.85rem; text-align: left; }
-        .trial-item { display: flex; justify-content: flex-start; gap: 12px; border-bottom: 1px solid #eee; padding: 4px 0; }
-        .result-card { border-left: 6px solid #007aff; padding-left: 15px; margin: 12px 0; background: #f0f7ff; padding: 10px; border-radius: 0 8px 8px 0; text-align: left; }
-        .clinical-notes { background: #fffbe6; border: 1px solid #ffe58f; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.82rem; color: #555; }
-        .ref-footer { font-size: 0.75rem; color: #8e8e93; margin-top: 12px; text-align: left; border-top: 1px solid #eee; padding-top: 5px; }
+        body { font-family: -apple-system, sans-serif; text-align: center; background: #f8f9fa; margin: 0; padding: 15px; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        /* 首頁提示區 */
+        .hint { background: #fff3bf; color: #856404; padding: 15px; border-radius: 10px; font-size: 1rem; margin-bottom: 15px; font-weight: bold; border: 1px solid #ffe066; line-height: 1.5; }
+        
+        video { width: 100%; border-radius: 12px; background: #000; margin-bottom: 10px; }
+        .setup-sec { margin-bottom: 15px; padding: 10px; background: #e9ecef; border-radius: 10px; }
+        button { width: 100%; padding: 18px; font-size: 1.2rem; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; margin-bottom: 10px; }
+        #mainBtn { background: #007bff; color: white; }
+        #mainBtn.active { background: #dc3545; }
+        
+        #resTable { width: 100%; border-collapse: collapse; text-align: left; margin-top: 10px; }
+        #resTable td { padding: 12px; border-bottom: 1px solid #eee; font-size: 1.1rem; }
+        
+        .report-page { display: none; text-align: left; background: #fff; padding: 15px; border-radius: 12px; border: 2px solid #ddd; margin-top: 15px; }
+        .result-item { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; color: #333; }
+        input, select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 1rem; margin-bottom: 10px; box-sizing: border-box; }
+        
+        #emailBtn { background: #28a745; color: white; }
+        .risk-tag { font-size: 1.3rem; font-weight: bold; padding: 15px; border-radius: 8px; text-align: center; margin-top: 10px; }
+        .footer-ref { font-size: 0.85rem; color: #999; margin-top: 20px; text-align: center; font-style: italic; }
     </style>
 </head>
 <body>
 
-<div id="initScreen" class="init-screen">
-    <div class="notice-banner">提示：需先開啟「螢幕錄影」才能儲存錄影檔</div>
-    <h2 style="margin-top:0;">10MWT 臨床診斷系統</h2>
-    <input type="text" id="patientIdInput" placeholder="請輸入病歷號 (Chart No.)" style="margin-bottom: 10px;">
-    <select id="trialCountSelect" style="margin-bottom: 20px;">
-        <option value="1">單次測試</option>
-        <option value="2">測試 2 次 (取平均值)</option>
-        <option value="3" selected>測試 3 次 (取平均值)</option>
-    </select>
-    <button onclick="startSystem()" style="background:#007aff; color:white; width:100%;">啟動評估相機</button>
-</div>
-
-<div id="video_area">
-    <div class="overlay">
-        <span id="trialDisplay" style="color:#34c759; font-weight:bold;">準備就緒</span><br>
-        ⏱ <span id="timerDisplay" style="font-size:1.4rem;">0.00</span> s
-    </div>
-    <video id="input_video" playsinline muted autoplay></video>
-</div>
-
-<div class="controls">
-    <button id="startBtn">🔴 開始計時</button>
-    <button id="stopBtn">⏹ 停止計時</button>
+<div class="container">
+    <h3 style="margin: 5px 0;">TUG 臨床評估</h3>
     
-    <div id="stepInputArea" style="display:none; background:#2c2c2e; padding:15px; border-radius:10px;">
-        <label id="stepLabel" style="color:#34c759; font-weight:bold;"></label>
-        <p style="color:#aaa; font-size:0.8rem; margin: 5px 0;">(提示：請輸入 10 公尺內的總步數以計算步頻)</p>
-        <div style="display:flex; gap:10px; margin-top:10px;">
-            <input type="number" id="manualSteps" placeholder="輸入步數" pattern="\d*">
-            <button onclick="recordTrial()" style="background:#007aff; width:40%; padding:10px;">確定</button>
-        </div>
+    <div class="hint">
+        提示：需先開啟「螢幕錄影」才能儲存錄影檔<br>
+        測試時請同時記錄行走步數，以便計算步頻
     </div>
 
-    <div id="report">
-        <div id="reportContent"></div>
-        <button id="emailBtn" style="background:#007aff; color:white; margin-top:10px; padding:12px;">📧 寄送詳細臨床數據</button>
-        <button onclick="location.reload()" style="background:#8e8e93; color:white; margin-top:10px; padding:10px;">下一位患者評估</button>
+    <div id="setupArea" class="setup-sec">
+        <label>設定測試次數：</label>
+        <select id="testCount" style="width: auto;">
+            <option value="1">1 次</option>
+            <option value="2">2 次</option>
+            <option value="3" selected>3 次</option>
+        </select>
     </div>
+
+    <video id="v" autoplay muted playsinline></video>
+    
+    <button id="mainBtn">啟動後置相機</button>
+
+    <table id="resTable">
+        <tbody id="resBody"></tbody>
+    </table>
+
+    <div id="reportPage" class="report-page">
+        <div class="result-item">
+            <label>📊 測試成績總覽：</label>
+            <div id="individualScores" style="margin-bottom: 10px; color: #444;"></div>
+            <div style="font-size: 1.2rem; font-weight:bold;">平均耗時：<span id="avgDisplay" style="color:#007bff;">0</span> 秒</div>
+        </div>
+
+        <div class="result-item">
+            <label>👣 步頻計算 (Cadence)：</label>
+            <input type="number" id="stepInput" placeholder="輸入本次測試總步數" oninput="calculateCadence()">
+            <div id="cadenceResult" style="font-weight: bold; color: #e67e22;">步頻：-- steps/min</div>
+        </div>
+
+        <div class="result-item">
+            <label>👤 個案病歷號：</label>
+            <input type="text" id="patientId" placeholder="請輸入編號">
+            
+            <label>🎯 族群常模 (Reference: Physiopedia)：</label>
+            <select id="popType" onchange="updateRisk()">
+                <option value="13.5">社區一般長者 (13.5s)</option>
+                <option value="14">中風患者 (14s)</option>
+                <option value="32.6">虛弱高齡者 (32.6s)</option>
+                <option value="19">下肢截肢者 (19s)</option>
+                <option value="11.5">帕金森氏症 (11.5s)</option>
+                <option value="10">髖關節炎 (10s)</option>
+                <option value="11.1">前庭功能障礙 (11.1s)</option>
+            </select>
+        </div>
+
+        <div id="riskDisplay" class="risk-tag"></div>
+
+        <div class="result-item" style="border-bottom:none; margin-top:15px;">
+            <label>📧 報告傳送：</label>
+            <input type="email" id="targetEmail" placeholder="收件者 Email">
+            <button id="emailBtn">發送報告</button>
+        </div>
+        
+        <div class="footer-ref">Reference: Physiopedia</div>
+    </div>
+
+    <button id="resetBtn" onclick="location.reload()" style="background: #dee2e6; color: #495057; font-size: 0.9rem; margin-top: 20px;">重新測試</button>
 </div>
 
 <script>
-const video = document.getElementById('input_video');
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const reportDiv = document.getElementById('report');
-const stepInputArea = document.getElementById('stepInputArea');
+    let start, results = [], stream;
+    const btn = document.getElementById('mainBtn');
+    const v = document.getElementById('v');
+    const reportPage = document.getElementById('reportPage');
 
-let startTime = 0, isRecording = false;
-let currentTrial = 1, totalTrials = 1;
-let trialData = []; 
-const DISTANCE = 10.0;
+    btn.onclick = async () => {
+        if (!stream) {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                v.srcObject = stream;
+                btn.textContent = "開始第 1 次計時";
+                document.getElementById('testCount').disabled = true;
+            } catch (e) { alert("請確保使用 HTTPS 並授權相機"); }
+            return;
+        }
 
-async function startSystem() {
-    totalTrials = parseInt(document.getElementById('trialCountSelect').value);
-    document.getElementById('initScreen').style.display = 'none';
-    document.getElementById('trialDisplay').innerText = `Round: 1 / ${totalTrials}`;
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
-    video.srcObject = stream;
-}
+        const max = parseInt(document.getElementById('testCount').value);
+        if (results.length >= max) return;
 
-startBtn.onclick = () => {
-    isRecording = true; startTime = performance.now();
-    startBtn.style.display = 'none'; stopBtn.style.display = 'block';
-    reportDiv.style.display = 'none'; stepInputArea.style.display = 'none';
-    const tick = () => { if(!isRecording) return; document.getElementById('timerDisplay').innerText = ((performance.now() - startTime) / 1000).toFixed(2); requestAnimationFrame(tick); };
-    tick();
-};
+        if (!start) {
+            start = performance.now();
+            btn.textContent = "結束 (坐下點擊)";
+            btn.classList.add('active');
+        } else {
+            const time = ((performance.now() - start) / 1000).toFixed(2);
+            results.push(parseFloat(time));
+            start = null;
+            
+            const row = document.getElementById('resBody').insertRow();
+            row.innerHTML = `<td style="width: 50%;">第 ${results.length} 次測試</td><td><b>${time} s</b></td>`;
+            
+            if (results.length < max) {
+                btn.textContent = `開始第 ${results.length + 1} 次計時`;
+                btn.classList.remove('active');
+            } else {
+                btn.textContent = "評估完成";
+                btn.disabled = true;
+                btn.classList.remove('active');
+                finishTest();
+            }
+        }
+    };
 
-stopBtn.onclick = () => {
-    isRecording = false;
-    let dur = (performance.now() - startTime) / 1000;
-    trialData.push({ duration: dur });
-    stopBtn.style.display = 'none';
-    stepInputArea.style.display = 'block';
-    document.getElementById('stepLabel').innerText = `第 ${currentTrial} 次測試結束：`;
-};
-
-function recordTrial() {
-    const s = parseFloat(document.getElementById('manualSteps').value) || 0;
-    trialData[currentTrial - 1].steps = s;
-    document.getElementById('manualSteps').value = "";
-
-    if (currentTrial < totalTrials) {
-        currentTrial++;
-        document.getElementById('trialDisplay').innerText = `Round: ${currentTrial} / ${totalTrials}`;
-        stepInputArea.style.display = 'none';
-        startBtn.style.display = 'block';
-        document.getElementById('timerDisplay').innerText = "0.00";
-    } else {
-        showFinalReport();
+    function finishTest() {
+        const avg = (results.reduce((s, r) => s + r) / results.length).toFixed(2);
+        document.getElementById('avgDisplay').textContent = avg;
+        
+        let scoresHtml = "";
+        results.forEach((r, i) => {
+            scoresHtml += `次數 ${i+1}: ${r} s<br>`;
+        });
+        document.getElementById('individualScores').innerHTML = scoresHtml;
+        
+        reportPage.style.display = 'block';
+        updateRisk();
+        reportPage.scrollIntoView({ behavior: 'smooth' });
     }
-}
 
-function showFinalReport() {
-    const pid = document.getElementById('patientIdInput').value || "N/A";
-    const avgDur = trialData.reduce((a, b) => a + b.duration, 0) / totalTrials;
-    const avgSteps = trialData.reduce((a, b) => a + b.steps, 0) / totalTrials;
-    const avgVel = DISTANCE / avgDur;
-    
-    let amb = avgVel < 0.4 ? "Household ambulation" : (avgVel <= 0.8 ? "Limited community ambulation" : "Community ambulation");
-
-    let trialsHTML = trialData.map((d, i) => `
-        <div class="trial-item">
-            <span>T${i+1}:</span>
-            <b>${d.duration.toFixed(2)} s | ${d.steps} 步 | ${(DISTANCE/d.duration).toFixed(2)} m/s</b>
-        </div>
-    `).join('');
-
-    let reportHTML = `
-        <div style="font-size:0.8rem; color:#8e8e93;">Chart No: ${pid}</div>
+    function calculateCadence() {
+        const steps = parseFloat(document.getElementById('stepInput').value);
+        const avgTime = parseFloat(document.getElementById('avgDisplay').textContent);
+        const cadenceDiv = document.getElementById('cadenceResult');
         
-        <div class="trial-record">
-            <div style="color:#007aff; font-weight:bold; margin-bottom:4px;">Individual Trial Data:</div>
-            ${trialsHTML}
-        </div>
+        if (steps > 0 && avgTime > 0) {
+            const cadence = ((steps / avgTime) * 60).toFixed(1);
+            cadenceDiv.innerText = `步頻：${cadence} steps/min`;
+        } else {
+            cadenceDiv.innerText = `步頻：-- steps/min`;
+        }
+    }
+
+    function updateRisk() {
+        const avg = parseFloat(document.getElementById('avgDisplay').textContent);
+        const cutOff = parseFloat(document.getElementById('popType').value);
+        const riskDiv = document.getElementById('riskDisplay');
         
-        <div class="result-card">
-            <div style="font-size:1.1rem; font-weight:bold;">Mean Gait Speed: ${avgVel.toFixed(2)} m/s</div>
-            <div style="font-size:1rem;">Classification: ${amb}</div>
-        </div>
-
-        <div style="font-size:0.85rem; margin-bottom:10px;">
-            👣 Mean Cadence: ${((avgSteps/avgDur)*60).toFixed(1)} steps/min<br>
-            📏 Mean Step Length: ${(DISTANCE/avgSteps).toFixed(2)} m/step
-        </div>
-
-        <div class="clinical-notes">
-            <b>Clinical Interpretation:</b><br>
-            • <b>Stroke Cut-offs:</b> < 0.4 m/s (Household), 0.4-0.8 m/s (Ltd Community), > 0.8 m/s (Community).<br>
-            • <b>Fall Risk (Older Adults):</b> Speeds < 0.7 m/s are linked to high risk of falls & hospitalisation.<br>
-            • <b>Normative Values (m/s):</b><br>
-              - 70s: Men ~1.26 / Women ~1.13<br>
-              - 80s/90s: Men ~0.97 / Women ~0.94<br>
-            • <b>Mortality Risk:</b> Slow speed (< 1.0 m/s) predicts increased morbidity/mortality.
-        </div>
-
-        <div class="ref-footer">Reference: Physiopedia / neuropt.org</div>
-    `;
-    
-    document.getElementById('reportContent').innerHTML = reportHTML;
-    stepInputArea.style.display = 'none';
-    reportDiv.style.display = 'block';
+        if (avg >= cutOff) {
+            riskDiv.innerHTML = `⚠️ 評估：高跌倒風險<br><small>(切點: ${cutOff} s)</small>`;
+            riskDiv.style.background = "#fff5f5";
+            riskDiv.style.color = "#c92a2a";
+            riskDiv.style.border = "2px solid #ffc9c9";
+        } else {
+            riskDiv.innerHTML = `✅ 評估：行動力良好<br><small>(切點: ${cutOff} s)</small>`;
+            riskDiv.style.background = "#f8f9fa";
+            riskDiv.style.color = "#2b8a3e";
+            riskDiv.style.border = "2px solid #b2f2bb";
+        }
+    }
 
     document.getElementById('emailBtn').onclick = () => {
-        const mailBody = `10MWT Clinical Report\nChart No: ${pid}\nMean Speed: ${avgVel.toFixed(2)} m/s\nClassification: ${amb}\n\nTrials Detail:\n${trialData.map((d,i)=>`T${i+1}: ${d.duration.toFixed(2)}s, ${d.steps} steps, ${(DISTANCE/d.duration).toFixed(2)}m/s`).join('\n')}\n\nInterpretation Reference: neuropt.org / Physiopedia`;
-        window.location.href = `mailto:?subject=10MWT_Clinical_Report_${pid}&body=${encodeURIComponent(mailBody)}`;
+        const pId = document.getElementById('patientId').value || "未填寫";
+        const email = document.getElementById('targetEmail').value;
+        const avg = document.getElementById('avgDisplay').textContent;
+        const cadence = document.getElementById('cadenceResult').innerText;
+        const popName = document.getElementById('popType').options[document.getElementById('popType').selectedIndex].text;
+        const riskText = document.getElementById('riskDisplay').innerText.split('\n')[0];
+
+        if (!email) { alert("請填寫 Email"); return; }
+
+        const subject = encodeURIComponent(`TUG 評估 - ID: ${pId}`);
+        const body = encodeURIComponent(
+            `Timed Up and Go 臨床報告\r\n` +
+            `--------------------------\r\n` +
+            `病歷號: ${pId}\r\n` +
+            `參考族群: ${popName}\r\n` +
+            `個別耗時: ${results.join('s, ')}s\r\n` +
+            `平均耗時: ${avg} s\r\n` +
+            `${cadence}\r\n` +
+            `評估結論: ${riskText}\r\n` +
+            `--------------------------\r\n` +
+            `Reference: Physiopedia`
+        );
+        window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
     };
-}
 </script>
 </body>
 </html>
