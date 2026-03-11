@@ -2,7 +2,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT 臨床系統 V13.0</title>
+    <title>10MWT 臨床系統 V14.0</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         #video_area { position: relative; width: 100%; height: 50vh; background: #000; flex-shrink: 0; border-bottom: 2px solid #333; }
@@ -13,15 +13,13 @@
         button { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: bold; }
         #startBtn { background: #34c759; color: white; }
         #stopBtn { background: #ff3b30; color: white; display: none; }
-        #report { background: #fff; color: #333; padding: 20px; border-radius: 12px; display: none; font-size: 0.95rem; line-height: 1.6; }
+        #report { background: #fff; color: #333; padding: 20px; border-radius: 12px; display: none; font-size: 0.95rem; line-height: 1.6; text-align: left; }
         .notice-banner { background: #ff453a; color: white; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 0.9rem; }
         .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px; text-align: center; }
-        .trial-record { background: #f8f9fa; border: 1px solid #e0e0e0; padding: 12px; border-radius: 8px; margin: 10px 0; font-size: 0.85rem; }
-        .trial-item { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 5px 0; }
-        .trial-item:last-child { border-bottom: none; }
-        .result-card { border-left: 6px solid #007aff; padding-left: 15px; margin: 15px 0; background: #f0f7ff; padding: 12px; border-radius: 0 8px 8px 0; }
-        .ref-footer { font-size: 0.8rem; color: #8e8e93; margin-top: 15px; text-align: right; border-top: 1px solid #eee; padding-top: 5px; }
-        b { color: #000; }
+        .trial-record { background: #f8f9fa; border: 1px solid #e0e0e0; padding: 12px; border-radius: 8px; margin: 10px 0; font-size: 0.85rem; text-align: left; }
+        .trial-item { display: flex; justify-content: flex-start; gap: 15px; border-bottom: 1px solid #eee; padding: 5px 0; }
+        .result-card { border-left: 6px solid #007aff; padding-left: 15px; margin: 15px 0; background: #f0f7ff; padding: 12px; border-radius: 0 8px 8px 0; text-align: left; }
+        .ref-footer { font-size: 0.8rem; color: #8e8e93; margin-top: 15px; text-align: left; border-top: 1px solid #eee; padding-top: 5px; }
     </style>
 </head>
 <body>
@@ -35,7 +33,7 @@
         <option value="2">測試 2 次 (取平均值)</option>
         <option value="3" selected>測試 3 次 (取平均值)</option>
     </select>
-    <button onclick="startSystem()" style="background:#007aff; color:white;">啟動評估相機</button>
+    <button onclick="startSystem()" style="background:#007aff; color:white; width:100%;">啟動評估相機</button>
 </div>
 
 <div id="video_area">
@@ -53,15 +51,15 @@
     <div id="stepInputArea" style="display:none; background:#2c2c2e; padding:15px; border-radius:10px;">
         <label id="stepLabel" style="color:#34c759; font-weight:bold;"></label>
         <div style="display:flex; gap:10px; margin-top:10px;">
-            <input type="number" id="manualSteps" placeholder="請輸入觀察步數" pattern="\d*">
+            <input type="number" id="manualSteps" placeholder="請輸入步數" pattern="\d*">
             <button onclick="recordTrial()" style="background:#007aff; width:40%; padding:10px;">確定</button>
         </div>
     </div>
 
     <div id="report">
         <div id="reportContent"></div>
-        <button id="emailBtn" style="background:#007aff; color:white; margin-top:10px;">📧 寄送測試數據 (含單位)</button>
-        <button onclick="location.reload()" style="background:#8e8e93; color:white; margin-top:10px; padding:10px;">下一位患者</button>
+        <button id="emailBtn" style="background:#007aff; color:white; margin-top:10px;">📧 寄送測試數據</button>
+        <button onclick="location.reload()" style="background:#8e8e93; color:white; margin-top:10px; padding:10px;">下一位患者評估</button>
     </div>
 </div>
 
@@ -119,7 +117,7 @@ function recordTrial() {
 }
 
 function showFinalReport() {
-    const pid = document.getElementById('patientIdInput').value || "無";
+    const pid = document.getElementById('patientIdInput').value || "未標註";
     const avgDur = trialData.reduce((a, b) => a + b.duration, 0) / totalTrials;
     const avgSteps = trialData.reduce((a, b) => a + b.steps, 0) / totalTrials;
     const avgVel = DISTANCE / avgDur;
@@ -128,16 +126,16 @@ function showFinalReport() {
 
     let trialsHTML = trialData.map((d, i) => `
         <div class="trial-item">
-            <span>測試 ${i+1}:</span>
+            <span>T${i+1}:</span>
             <b>${d.duration.toFixed(2)} s | ${d.steps} 步 | ${(DISTANCE/d.duration).toFixed(2)} m/s</b>
         </div>
     `).join('');
 
     let reportHTML = `
-        <div style="font-size:0.8rem; color:#8e8e93;">病歷號：${pid}</div>
+        <div style="font-size:0.8rem; color:#8e8e93; text-align:left;">病歷號：${pid}</div>
         
         <div class="trial-record">
-            <div style="color:#007aff; font-weight:bold; margin-bottom:5px;">個別測試成績明細：</div>
+            <div style="color:#007aff; font-weight:bold; margin-bottom:5px;">個別測試成績：</div>
             ${trialsHTML}
         </div>
         
@@ -146,11 +144,11 @@ function showFinalReport() {
             <div style="font-size:1.05rem;">移動分級：${amb}</div>
         </div>
         
-        <div style="font-weight:bold; color:${avgVel < 0.7 ? '#ff453a' : '#34c759'}; margin-bottom:12px;">
-            ${avgVel < 0.7 ? '⚠️ 高跌倒/住院風險' : '✅ 跌倒風險低於警戒值'}
+        <div style="font-weight:bold; color:${avgVel < 0.7 ? '#ff453a' : '#34c759'}; margin-bottom:12px; text-align:left;">
+            ${avgVel < 0.7 ? '⚠️ 高跌倒/住院風險 (< 0.7 m/s)' : '✅ 跌倒風險低於警戒值'}
         </div>
 
-        <div style="font-size:0.9rem; border-top:1px solid #eee; padding-top:10px;">
+        <div style="font-size:0.9rem; border-top:1px solid #eee; padding-top:10px; text-align:left;">
             👣 平均步頻：${((avgSteps/avgDur)*60).toFixed(1)} steps/min<br>
             📏 平均步長：${(DISTANCE/avgSteps).toFixed(2)} m/step
         </div>
@@ -163,7 +161,7 @@ function showFinalReport() {
     reportDiv.style.display = 'block';
 
     document.getElementById('emailBtn').onclick = () => {
-        const mailBody = `10MWT 臨床評估報告\n病歷號：${pid}\n平均速度：${avgVel.toFixed(2)} m/s\n分級：${amb}\n\n個別測試明細：\n${trialData.map((d,i)=>`T${i+1}: ${d.duration.toFixed(2)}s, ${d.steps}步, ${(DISTANCE/d.duration).toFixed(2)}m/s`).join('\n')}\n\n平均步頻：${((avgSteps/avgDur)*60).toFixed(1)} steps/min\n平均步長：${(DISTANCE/avgSteps).toFixed(2)} m/step\nReference: Physiopedia`;
+        const mailBody = `10MWT 臨床報告\n病歷號：${pid}\n平均速度：${avgVel.toFixed(2)} m/s\n分級：${amb}\n\n明細：\n${trialData.map((d,i)=>`T${i+1}: ${d.duration.toFixed(2)}s, ${d.steps}步, ${(DISTANCE/d.duration).toFixed(2)}m/s`).join('\n')}\n\nReference: Physiopedia`;
         window.location.href = `mailto:?subject=10MWT_Report_${pid}&body=${encodeURIComponent(mailBody)}`;
     };
 }
