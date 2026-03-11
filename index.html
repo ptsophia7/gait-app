@@ -1,9 +1,8 @@
-
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT 臨床系統 V11.0</title>
+    <title>10MWT 臨床系統 V12.0</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         #video_area { position: relative; width: 100%; height: 50vh; background: #000; flex-shrink: 0; border-bottom: 2px solid #333; }
@@ -17,28 +16,29 @@
         #report { background: #fff; color: #333; padding: 20px; border-radius: 12px; display: none; font-size: 0.95rem; line-height: 1.6; }
         .notice-banner { background: #ff453a; color: white; padding: 10px; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 0.9rem; }
         .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 25px; text-align: center; }
-        .trial-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: #555; border-bottom: 1px dashed #ddd; padding: 3px 0; }
+        .trial-record { background: #f8f9fa; border: 1px solid #eee; padding: 10px; border-radius: 8px; margin: 10px 0; font-size: 0.85rem; }
+        .trial-item { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 4px 0; }
         .result-card { border-left: 6px solid #007aff; padding-left: 15px; margin: 10px 0; background: #f0f7ff; padding: 10px; border-radius: 0 8px 8px 0; }
-        .ref-footer { font-size: 0.75rem; color: #8e8e93; margin-top: 10px; border-top: 1px solid #eee; pt: 5px; }
+        .ref-footer { font-size: 0.8rem; color: #8e8e93; margin-top: 10px; text-align: right; font-style: italic; }
     </style>
 </head>
 <body>
 
 <div id="initScreen" class="init-screen">
-    <div class="notice-banner">💡 提示：需先開啟「螢幕錄影」才能儲存錄影檔</div>
-    <h2 style="margin-top:0;">10MWT 臨床評估</h2>
+    <div class="notice-banner">提示：需先開啟「螢幕錄影」才能儲存錄影檔</div>
+    <h2 style="margin-top:0;">10MWT 臨床診斷系統</h2>
     <input type="text" id="patientIdInput" placeholder="請輸入病歷號 (Chart No.)" style="margin-bottom: 10px;">
     <select id="trialCountSelect" style="margin-bottom: 20px;">
-        <option value="1">測試 1 次</option>
+        <option value="1">單次測試</option>
         <option value="2">測試 2 次 (平均值)</option>
         <option value="3" selected>測試 3 次 (平均值)</option>
     </select>
-    <button onclick="startSystem()" style="background:#007aff; color:white;">啟動相機</button>
+    <button onclick="startSystem()" style="background:#007aff; color:white;">啟動評估相機</button>
 </div>
 
 <div id="video_area">
     <div class="overlay">
-        <span id="trialDisplay" style="color:#34c759; font-weight:bold;">準備中</span><br>
+        <span id="trialDisplay" style="color:#34c759; font-weight:bold;">準備就緒</span><br>
         ⏱ <span id="timerDisplay" style="font-size:1.4rem;">0.00</span> s
     </div>
     <video id="input_video" playsinline muted autoplay></video>
@@ -46,20 +46,20 @@
 
 <div class="controls">
     <button id="startBtn">🔴 開始計時</button>
-    <button id="stopBtn">⏹ 停止並紀錄步數</button>
+    <button id="stopBtn">⏹ 停止計時</button>
     
     <div id="stepInputArea" style="display:none; background:#2c2c2e; padding:15px; border-radius:10px;">
         <label id="stepLabel" style="color:#34c759; font-weight:bold;"></label>
         <div style="display:flex; gap:10px; margin-top:10px;">
-            <input type="number" id="manualSteps" placeholder="輸入步數" pattern="\d*">
-            <button onclick="recordTrial()" style="background:#007aff; width:40%; padding:10px;">確認</button>
+            <input type="number" id="manualSteps" placeholder="請輸入觀察步數" pattern="\d*">
+            <button onclick="recordTrial()" style="background:#007aff; width:40%; padding:10px;">確定</button>
         </div>
     </div>
 
     <div id="report">
         <div id="reportContent"></div>
-        <button id="emailBtn" style="background:#007aff; color:white; margin-top:10px;">📧 寄送詳細數據</button>
-        <button onclick="location.reload()" style="background:#8e8e93; color:white; margin-top:10px; padding:10px;">新病歷測試</button>
+        <button id="emailBtn" style="background:#007aff; color:white; margin-top:10px;">📧 寄送測試數據</button>
+        <button onclick="location.reload()" style="background:#8e8e93; color:white; margin-top:10px; padding:10px;">下一位患者</button>
     </div>
 </div>
 
@@ -78,7 +78,7 @@ const DISTANCE = 10.0;
 async function startSystem() {
     totalTrials = parseInt(document.getElementById('trialCountSelect').value);
     document.getElementById('initScreen').style.display = 'none';
-    document.getElementById('trialDisplay').innerText = `Trial: 1 / ${totalTrials}`;
+    document.getElementById('trialDisplay').innerText = `Round: 1 / ${totalTrials}`;
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
     video.srcObject = stream;
 }
@@ -97,7 +97,7 @@ stopBtn.onclick = () => {
     trialData.push({ duration: dur });
     stopBtn.style.display = 'none';
     stepInputArea.style.display = 'block';
-    document.getElementById('stepLabel').innerText = `第 ${currentTrial} 次完成，請輸入步數：`;
+    document.getElementById('stepLabel').innerText = `第 ${currentTrial} 次測試結束，步數為：`;
 };
 
 function recordTrial() {
@@ -107,7 +107,7 @@ function recordTrial() {
 
     if (currentTrial < totalTrials) {
         currentTrial++;
-        document.getElementById('trialDisplay').innerText = `Trial: ${currentTrial} / ${totalTrials}`;
+        document.getElementById('trialDisplay').innerText = `Round: ${currentTrial} / ${totalTrials}`;
         stepInputArea.style.display = 'none';
         startBtn.style.display = 'block';
         document.getElementById('timerDisplay').innerText = "0.00";
@@ -117,15 +117,15 @@ function recordTrial() {
 }
 
 function showFinalReport() {
-    const pid = document.getElementById('patientIdInput').value || "N/A";
+    const pid = document.getElementById('patientIdInput').value || "無";
     const avgDur = trialData.reduce((a, b) => a + b.duration, 0) / totalTrials;
     const avgSteps = trialData.reduce((a, b) => a + b.steps, 0) / totalTrials;
     const avgVel = DISTANCE / avgDur;
     
     let amb = avgVel < 0.4 ? "居家行走" : (avgVel <= 0.8 ? "受限社區行走" : "社區行走");
-    
-    let trialDetailsHTML = trialData.map((d, i) => `
-        <div class="trial-row">
+
+    let trialsHTML = trialData.map((d, i) => `
+        <div class="trial-item">
             <span>測試 ${i+1}:</span>
             <span>${d.duration.toFixed(2)}s | ${d.steps}步 | ${(DISTANCE/d.duration).toFixed(2)}m/s</span>
         </div>
@@ -133,27 +133,27 @@ function showFinalReport() {
 
     let reportHTML = `
         <div style="font-size:0.8rem; color:#8e8e93;">病歷號：${pid}</div>
-        <div style="margin-top:10px; font-weight:bold; color:#007aff;">每次測試原始數值：</div>
-        ${trialDetailsHTML}
+        
+        <div class="trial-record">
+            <b style="color:#007aff;">個別測試成績：</b>
+            ${trialsHTML}
+        </div>
         
         <div class="result-card">
             <b style="font-size:1.1rem;">平均步速：${avgVel.toFixed(2)} m/s</b><br>
             <b>移動分級：${amb}</b>
         </div>
         
-        <div style="font-weight:bold; color:${avgVel < 0.7 ? '#ff453a' : '#34c759'};">
-            ${avgVel < 0.7 ? '⚠️ 高跌倒/住院風險' : '✅ 跌倒風險較低'}
+        <div style="font-weight:bold; color:${avgVel < 0.7 ? '#ff453a' : '#34c759'}; margin-bottom:10px;">
+            ${avgVel < 0.7 ? '⚠️ 高跌倒/住院風險' : '✅ 跌倒風險低於警戒值'}
         </div>
 
-        <div style="font-size:0.85rem; margin-top:10px;">
+        <div style="font-size:0.85rem; border-top:1px solid #eee; padding-top:10px;">
             👣 平均步頻：${((avgSteps/avgDur)*60).toFixed(1)} steps/min<br>
             📏 平均步長：${(DISTANCE/avgSteps).toFixed(2)} m/step
         </div>
 
-        <div class="ref-footer">
-            Reference: Physiopedia / neuropt.org (ANPT)<br>
-            中風分級: <0.4(居家), 0.4-0.8(受限社區), >0.8(社區)
-        </div>
+        <div class="ref-footer">Reference: Physiopedia</div>
     `;
     
     document.getElementById('reportContent').innerHTML = reportHTML;
@@ -161,7 +161,7 @@ function showFinalReport() {
     reportDiv.style.display = 'block';
 
     document.getElementById('emailBtn').onclick = () => {
-        const mailBody = `10MWT 報告\n病歷號：${pid}\n平均速度：${avgVel.toFixed(2)} m/s\n分級：${amb}\n數據明細：\n${trialData.map((d,i)=>`T${i+1}: ${d.duration.toFixed(2)}s, ${d.steps}步`).join('\n')}`;
+        const mailBody = `10MWT 臨床報告\n病歷號：${pid}\n平均步速：${avgVel.toFixed(2)} m/s\n分級：${amb}\n個別數據：\n${trialData.map((d,i)=>`T${i+1}: ${d.duration.toFixed(2)}s, ${d.steps}步`).join('\n')}\n\nReference: Physiopedia`;
         window.location.href = `mailto:?subject=10MWT_Report_${pid}&body=${encodeURIComponent(mailBody)}`;
     };
 }
