@@ -1,49 +1,59 @@
+
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT 臨床診斷系統 V7.0</title>
+    <title>10MWT 臨床診斷系統 V8.1</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        #video_area { position: relative; width: 100%; height: 55vh; background: #000; flex-shrink: 0; border-bottom: 2px solid #333; }
+        #video_area { position: relative; width: 100%; height: 50vh; background: #000; flex-shrink: 0; border-bottom: 2px solid #333; }
         video, canvas { position: absolute; width: 100%; height: 100%; object-fit: contain; }
-        .overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; border: 1px solid #34c759; z-index: 10; font-family: monospace; font-size: 1.1rem; }
-        .controls { flex: 1; background: #1c1c1e; padding: 15px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
-        input[type="text"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #2c2c2e; color: #fff; font-size: 1rem; margin-bottom: 5px; box-sizing: border-box; }
-        button { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: bold; transition: 0.2s; }
+        .overlay { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; border: 1px solid #34c759; z-index: 10; font-family: monospace; font-size: 1.2rem; }
+        .controls { flex: 1; background: #1c1c1e; padding: 15px 20px calc(25px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #2c2c2e; color: #fff; font-size: 1rem; box-sizing: border-box; }
+        button { width: 100%; padding: 16px; border-radius: 12px; border: none; font-size: 1.1rem; font-weight: bold; }
         #startBtn { background: #34c759; color: white; }
         #stopBtn { background: #ff3b30; color: white; display: none; }
-        #emailBtn { background: #007aff; color: white; margin-top: 10px; display: none; }
-        #report { background: #fff; color: #333; padding: 15px; border-radius: 10px; display: none; font-size: 1rem; line-height: 1.6; border-left: 8px solid #007aff; }
-        .notice { color: #ff453a; font-size: 0.85rem; text-align: center; margin-bottom: 10px; font-weight: bold; }
-        .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
-        hr { border: 0; border-top: 1px solid #eee; margin: 10px 0; }
+        #report { background: #fff; color: #333; padding: 20px; border-radius: 12px; display: none; font-size: 0.95rem; line-height: 1.6; }
+        .notice { color: #ff453a; font-size: 0.85rem; text-align: center; margin-bottom: 10px; font-weight: bold; line-height: 1.4; }
+        .init-screen { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; }
+        .result-box { border-left: 6px solid #007aff; padding-left: 15px; margin: 10px 0; }
+        .source-tag { font-size: 0.75rem; color: #8e8e93; margin-top: 5px; text-transform: uppercase; }
+        .norm-content { font-size: 0.82rem; color: #444; background: #f2f2f7; padding: 12px; border-radius: 8px; margin-top: 10px; border: 1px solid #e5e5ea; }
     </style>
 </head>
 <body>
 
 <div id="initScreen" class="init-screen">
-    <h2 style="margin-bottom: 10px;">10MWT 步態診斷系統</h2>
-    <p class="notice">⚠️ 注意：請先從控制中心開啟「螢幕錄影」<br>以便保存分析過程與診斷報告</p>
-    <input type="text" id="patientIdInput" placeholder="請輸入病歷號 (Chart No.)">
-    <button onclick="startSystem()" style="background:#007aff; color:white; width:90%; margin-top:15px;">啟動臨床相機</button>
+    <h2>10MWT 臨床診斷系統</h2>
+    <p class="notice">⚠️ 請務必先開啟「螢幕錄影」<br>以便留存分析影像與最後診斷報告</p>
+    <input type="text" id="patientIdInput" placeholder="請輸入病歷號 (Chart No.)" style="margin-bottom: 15px;">
+    <button onclick="startSystem()" style="background:#007aff; color:white;">啟動臨床相機</button>
 </div>
 
 <div id="video_area">
-    <div class="overlay">⏱ <span id="timerDisplay">0.00</span>s | 👣 <span id="stepDisplay">0</span></div>
+    <div class="overlay">⏱ 計時: <span id="timerDisplay">0.00</span>s</div>
     <video id="input_video" playsinline muted autoplay></video>
     <canvas id="output_canvas"></canvas>
 </div>
 
 <div class="controls">
-    <button id="startBtn">🔴 開始 10 米步行測試</button>
-    <button id="stopBtn">⏹ 停止並查看診斷報告</button>
+    <button id="startBtn">🔴 開始 10 米測試</button>
+    <button id="stopBtn">⏹ 停止測試並輸入數據</button>
     
+    <div id="stepInputArea" style="display:none; background:#2c2c2e; padding:15px; border-radius:10px;">
+        <label style="color:#34c759; font-weight:bold;">測試完成！請輸入總步數：</label>
+        <div style="display:flex; gap:10px; margin-top:8px;">
+            <input type="number" id="manualSteps" placeholder="請輸入步數">
+            <button onclick="generateReport()" style="background:#007aff; width:40%; padding:10px;">生成報告</button>
+        </div>
+    </div>
+
     <div id="report">
         <div id="reportContent"></div>
-        <button id="emailBtn">📧 傳送結果至指定 Email</button>
+        <button onclick="location.reload()" style="background:#8e8e93; color:white; margin-top:15px; padding:10px; font-size:0.9rem;">返回首頁 / 重新測試</button>
     </div>
 </div>
 
@@ -53,37 +63,25 @@ const canvas = document.getElementById('output_canvas');
 const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
-const emailBtn = document.getElementById('emailBtn');
 const reportDiv = document.getElementById('report');
-const patientIdInput = document.getElementById('patientIdInput');
+const stepInputArea = document.getElementById('stepInputArea');
 
-let stepCount = 0, lastLeading = null, startTime = 0, isRecording = false;
-let patientId = "";
-const DISTANCE = 10.0; 
+let startTime = 0, duration = 0, isRecording = false;
+const DISTANCE = 10.0;
 
 const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-pose.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-
+pose.setOptions({ modelComplexity: 1, minDetectionConfidence: 0.5 });
 pose.onResults((results) => {
     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     ctx.save(); ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
     if (results.poseLandmarks) {
-        if (isRecording) {
-            const lAnkle = results.poseLandmarks[27], rAnkle = results.poseLandmarks[28];
-            const dist = Math.abs(lAnkle.x - rAnkle.x);
-            if (dist > 0.11) {
-                let currentLeading = lAnkle.x > rAnkle.x ? "L" : "R";
-                if (currentLeading !== lastLeading) { stepCount++; lastLeading = currentLeading; document.getElementById('stepDisplay').innerText = stepCount; }
-            }
-        }
-        drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 4});
+        drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {color: '#00FF00', lineWidth: 3});
     }
     ctx.restore();
 });
 
 async function startSystem() {
-    patientId = patientIdInput.value || "未註記";
     document.getElementById('initScreen').style.display = 'none';
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
     video.srcObject = stream;
@@ -92,55 +90,64 @@ async function startSystem() {
 }
 
 startBtn.onclick = () => {
-    isRecording = true; stepCount = 0; startTime = performance.now();
+    isRecording = true; startTime = performance.now();
     startBtn.style.display = 'none'; stopBtn.style.display = 'block';
-    reportDiv.style.display = 'none'; emailBtn.style.display = 'none';
+    reportDiv.style.display = 'none'; stepInputArea.style.display = 'none';
     const tick = () => { if(!isRecording) return; document.getElementById('timerDisplay').innerText = ((performance.now() - startTime) / 1000).toFixed(2); requestAnimationFrame(tick); };
     tick();
 };
 
-let finalReportData = ""; // 存儲郵件內容
-
 stopBtn.onclick = () => {
-    isRecording = false; 
-    const duration = (performance.now() - startTime) / 1000;
+    isRecording = false;
+    duration = (performance.now() - startTime) / 1000;
+    stopBtn.style.display = 'none';
+    stepInputArea.style.display = 'block';
+};
+
+function generateReport() {
+    const steps = document.getElementById('manualSteps').value;
     const velocity = (DISTANCE / duration);
+    const patientId = document.getElementById('patientIdInput').value || "N/A";
     
-    let diagnosis = "";
-    let statusColor = "";
-    if (velocity >= 0.8) { diagnosis = "社區行走者 (Community)"; statusColor = "#2ed573"; }
-    else if (velocity >= 0.4) { diagnosis = "受限社區行走者 (Limited)"; statusColor = "#ffa502"; }
-    else { diagnosis = "居家行走者 (Household)"; statusColor = "#ff4757"; }
+    let ambulationClass = "";
+    if (velocity < 0.4) ambulationClass = "居家行走 (Household)";
+    else if (velocity <= 0.8) ambulationClass = "受限社區行走 (Limited Community)";
+    else ambulationClass = "社區行走 (Community)";
 
-    reportDiv.style.display = 'block';
-    emailBtn.style.display = 'block';
-    
-    const reportHTML = `
-        <div style="font-size:0.9rem; color:#666;">病歷號：${patientId}</div>
-        <div style="font-size:1.2rem; font-weight:bold; color:${statusColor};">診斷：${diagnosis}</div>
-        <hr>
-        ⏱ 測試用時：${duration.toFixed(2)} 秒<br>
-        🚀 步行速度：${velocity.toFixed(2)} m/s<br>
-        👣 總計步數：${stepCount} 步<br>
-        ⚙️ 步頻平均：${((stepCount/duration)*60).toFixed(1)} steps/min<br>
-        📏 平均步長：${(DISTANCE/stepCount).toFixed(2)} m/step
-        <hr>
-        <div style="font-size:0.85rem; color:#555;">結語：受試者目前速度屬於${diagnosis}範疇，建議參考此數據進行後續康復訓練規劃。</div>
+    let fallRiskText = velocity < 0.7 ? "⚠️ 高跌倒/住院/依賴風險" : "✅ 跌倒風險低於警戒值";
+
+    let reportHTML = `
+        <div style="color:#8e8e93; font-size:0.8rem; margin-bottom:5px;">病歷號：${patientId}</div>
+        <div class="result-box">
+            <b style="font-size:1.1rem; color:#007aff;">步態速度：${velocity.toFixed(2)} m/s</b><br>
+            <b>移動能力分級：${ambulationClass}</b>
+        </div>
+        <div style="font-weight:bold; color:${velocity < 0.7 ? '#ff453a' : '#34c759'};">${fallRiskText}</div>
+        <div class="source-tag">Reference: Physiopedia / neuropt.org (ANPT)</div>
     `;
+
+    if (steps) {
+        const cadence = ((steps / duration) * 60).toFixed(1);
+        const stepLength = (DISTANCE / steps).toFixed(2);
+        reportHTML += `<hr>👣 步頻：${cadence} steps/min | 📏 步長：${stepLength} m/step`;
+    }
+
+    reportHTML += `
+        <div class="norm-content">
+            <b>【臨床引用與常模對照】</b><br>
+            • <b>中風分級：</b> <0.4 m/s (居家), 0.4-0.8 m/s (受限社區), >0.8 m/s (社區)。<br>
+            • <b>老年風險：</b> 步速 <0.7 m/s 與跌倒及住院風險增加顯著相關。<br>
+            • <b>年齡常模：</b><br>
+            &nbsp;&nbsp; - 70歲：男 1.26 / 女 1.13 m/s<br>
+            &nbsp;&nbsp; - 80-90歲：男 0.97 / 女 0.94 m/s<br>
+            • <b>臨床意義：</b> 步速 <1.0 m/s 被視為健康衰退之預測指標，建議定期追蹤。
+        </div>
+    `;
+
     document.getElementById('reportContent').innerHTML = reportHTML;
-
-    // 準備 Email 文字內容
-    finalReportData = `10MWT 測試報告\n病歷號：${patientId}\n診斷：${diagnosis}\n時間：${duration.toFixed(2)}s\n速度：${velocity.toFixed(2)}m/s\n步數：${stepCount}\n步頻：${((stepCount/duration)*60).toFixed(1)} steps/min`;
-
-    stopBtn.style.display = 'none'; startBtn.style.display = 'block';
-};
-
-emailBtn.onclick = () => {
-    const targetEmail = "請輸入接收信箱"; // 您可以將此處改為您的固定 Email
-    const subject = encodeURIComponent(`步態分析報告 - 病歷號: ${patientId}`);
-    const body = encodeURIComponent(finalReportData);
-    window.location.href = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
-};
+    stepInputArea.style.display = 'none';
+    reportDiv.style.display = 'block';
+}
 </script>
 </body>
 </html>
