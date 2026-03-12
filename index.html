@@ -2,12 +2,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10MWT Pro V19.0</title>
+    <title>10MWT Pro V20.0</title>
     <style>
         :root { --primary: #007AFF; --success: #34C759; --danger: #FF3B30; --bg: #F2F2F7; }
         body { margin: 0; background: var(--bg); color: #000; font-family: -apple-system, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        #video_area { position: relative; width: 100%; height: 35vh; background: #000; flex-shrink: 0; }
+        #video_area { position: relative; width: 100%; height: 32vh; background: #000; flex-shrink: 0; }
         video { width: 100%; height: 100%; object-fit: contain; }
         .overlay { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 12px; border: 1px solid var(--success); z-index: 10; color: #fff; }
 
@@ -23,19 +23,19 @@
         .btn-stop { background: var(--danger); color: white; }
         
         #report { display: none; background: #fff; border-radius: 20px; padding: 20px; border: 1px solid #EEE; text-align: left; }
-        .main-result { font-size: 2.8rem; font-weight: 800; color: var(--primary); margin: 5px 0; }
-        .sub-result { font-size: 1.5rem; font-weight: 700; color: #333; margin-bottom: 15px; }
+        .main-result { font-size: 3rem; font-weight: 800; color: var(--primary); margin: 5px 0; }
+        .sub-result { font-size: 1.6rem; font-weight: 700; color: #333; margin-bottom: 12px; }
         
         .init-screen { position: fixed; inset: 0; background: var(--bg); z-index: 1000; padding: 25px; display: flex; flex-direction: column; overflow-y: auto; }
-        .clinical-guideline { font-size: 0.8rem; color: #444; background: #FFF; padding: 15px; border-radius: 12px; border-left: 4px solid var(--primary); margin-top: 15px; line-height: 1.4; }
-        .trial-row { border-bottom: 1px solid #EEE; padding: 8px 0; font-size: 0.9rem; text-align: left; }
+        .clinical-section { background: #f8f9fa; padding: 15px; border-radius: 12px; border-left: 5px solid var(--primary); margin-top: 15px; font-size: 0.88rem; line-height: 1.6; }
+        .trial-row { border-bottom: 1px solid #EEE; padding: 8px 0; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
 <div id="initScreen" class="init-screen">
-    <div style="background: var(--danger); color: white; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 15px;">
-        ⚠️ 注意事項：評估前請先開啟「螢幕錄影」。<br>測試時請計算行走步數，以便計算步頻與步長。
+    <div style="background: var(--danger); color: white; padding: 12px; border-radius: 10px; text-align: center; font-weight: bold; margin-bottom: 15px;">
+        ⚠️ 注意事項：請先開啟「螢幕錄影」。<br>測試時請計算步數，以換算步頻與步長。
     </div>
     
     <div class="card">
@@ -49,23 +49,13 @@
             <option value="3">測試 3 次 (取平均)</option>
         </select>
         
-        <button class="btn btn-primary" onclick="startApp()" style="margin-top:10px;">啟動相機</button>
-    </div>
-
-    <div class="clinical-guideline">
-        <b style="color: var(--primary);">臨床評估參考 (Clinical Cut-offs):</b><br>
-        • <b>中風分級:</b> <0.4 m/s (居家), 0.4–0.8 (受限社區), >0.8 (社區行走)<br>
-        • <b>老年人跌倒風險:</b> 步速 <0.7 m/s 與跌倒、住院風險顯著相關<br>
-        • <b>年齡常模 (m/s):</b><br>
-        &nbsp;&nbsp;- 70歲代: 男 1.26 / 女 1.13<br>
-        &nbsp;&nbsp;- 80/90歲代: 男 0.97 / 女 0.94<br>
-        • <b>預後提示:</b> 步速 <1.0 m/s 與較高發病率及死亡率有關
+        <button class="btn btn-primary" onclick="startApp()" style="margin-top:10px;">啟動相機評估</button>
     </div>
 </div>
 
 <div id="video_area">
     <div class="overlay">
-        <div id="trialProgress">準備中</div>
+        <div id="trialProgress">準備就緒</div>
         <div style="font-size: 1.8rem; font-weight: bold;"><span id="timer">0.00</span> s</div>
     </div>
     <video id="webcam" playsinline muted autoplay></video>
@@ -77,24 +67,24 @@
 
     <div id="stepCounter" class="card" style="display:none;">
         <h3 id="stepTitle" style="margin: 0 0 10px 0;">輸入步數</h3>
-        <input type="number" id="stepsInput" placeholder="請輸入 10m 內總步數" inputmode="numeric">
-        <button class="btn btn-primary" onclick="nextTrial()">確認並繼續</button>
+        <input type="number" id="stepsInput" placeholder="請輸入該回合總步數" inputmode="numeric">
+        <button class="btn btn-primary" onclick="nextTrial()">確認</button>
     </div>
 
     <div id="report">
         <div id="reportContent"></div>
         
-        <div class="card" style="margin-top:15px; background: #F9F9F9;">
+        <div class="card" style="margin-top:15px; background: #F9F9F9; padding: 15px;">
             <label>負責治療師</label>
             <select id="therapistSelect">
                 <option value="030349@ntuh.gov.tw">劉苑玟 治療師</option>
                 <option value="custom">自定義 Email</option>
             </select>
-            <input type="email" id="customEmail" placeholder="輸入電子郵件" style="display:none;">
-            <button class="btn btn-primary" id="sendEmail">📧 發送報告</button>
+            <input type="email" id="customEmail" placeholder="輸入 Email" style="display:none;">
+            <button class="btn btn-primary" id="sendEmail">📧 發送完整報告</button>
         </div>
         
-        <button class="btn" onclick="location.reload()" style="background:#8E8E93; color:white; margin-top:15px;">下一位評估</button>
+        <button class="btn" onclick="location.reload()" style="background:#8E8E93; color:white; margin-top:15px;">下一位患者</button>
     </div>
 </div>
 
@@ -116,7 +106,7 @@ therapistSelect.onchange = () => {
 async function startApp() {
     totalTrials = parseInt(document.getElementById('trialCount').value);
     document.getElementById('initScreen').style.display = 'none';
-    trialProgress.innerText = `測試 1 / ${totalTrials}`;
+    trialProgress.innerText = `測試進度: 1 / ${totalTrials}`;
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
     video.srcObject = stream;
 }
@@ -154,7 +144,7 @@ function nextTrial() {
 
     if (currentTrial < totalTrials) {
         currentTrial++;
-        trialProgress.innerText = `測試 ${currentTrial} / ${totalTrials}`;
+        trialProgress.innerText = `測試進度: ${currentTrial} / ${totalTrials}`;
         document.getElementById('startBtn').style.display = 'block';
         timerText.innerText = "0.00";
     } else {
@@ -167,31 +157,33 @@ function finishEval() {
     const avgCadence = trials.reduce((a,b)=>a+b.cadence,0) / totalTrials;
     const avgStepLen = trials.reduce((a,b)=>a+b.stepLen,0) / totalTrials;
     
-    // 中風分級邏輯 (預設顯示)
-    let strokeClass = avgSpeed < 0.4 ? "居家行走" : (avgSpeed <= 0.8 ? "受限社區行走" : "社區行走");
+    let classification = avgSpeed < 0.4 ? "居家行走" : (avgSpeed <= 0.8 ? "受限社區行走" : "社區行走");
 
     let detailHTML = trials.map((t,i)=>`
-        <div class="trial-row">測試 ${i+1}: <b>${t.speed.toFixed(2)} m/s</b> | ${t.duration.toFixed(2)}s | ${t.steps}步</div>
+        <div class="trial-row">T${i+1}: <b>${t.speed.toFixed(2)} m/s</b> | ${t.duration.toFixed(2)}s | ${t.steps}步</div>
     `).join('');
 
     document.getElementById('reportContent').innerHTML = `
-        <span style="color:#666; font-size:0.9rem;">平均步速：</span>
+        <span style="color:#666; font-size:0.9rem;">病歷號：${document.getElementById('patientId').value || '未註記'}</span>
         <div class="main-result">${avgSpeed.toFixed(2)} m/s</div>
-        <div class="sub-result">${strokeClass}</div>
+        <div class="sub-result">${classification}</div>
         
         <div class="card" style="background:#F2F2F7; border:none; margin-bottom:15px; display:flex; gap:20px;">
             <div>👣 步頻: <b>${avgCadence.toFixed(1)}</b> 步/分</div>
             <div>📏 步長: <b>${avgStepLen.toFixed(2)}</b> m</div>
         </div>
 
-        <div style="margin-bottom:10px;">${detailHTML}</div>
+        <div style="margin-bottom:15px;">${detailHTML}</div>
         
-        <div style="font-size:0.75rem; color:#666; border-top:1px solid #EEE; padding-top:10px; line-height:1.4;">
-            <b>臨床參考指標 (Cut-offs):</b><br>
-            • 中風: <0.4(居家), 0.4-0.8(受限社區), >0.8(社區)<br>
-            • 老年人跌倒風險: <0.7 m/s<br>
-            • 死亡/病發風險增加: <1.0 m/s<br>
-            • Reference: Physiopedia
+        <div class="clinical-section">
+            <b style="color: var(--primary); font-size: 1rem;">臨床評估參考 (Clinical Cut-offs):</b><br>
+            • <b>中風分級:</b> <0.4 m/s (居家), 0.4–0.8 m/s (受限社區), >0.8 m/s (社區行走)<br>
+            • <b>老年人跌倒風險:</b> 步速 <0.7 m/s 與跌倒、住院風險顯著相關<br>
+            • <b>年齡常模 (m/s):</b><br>
+            &nbsp;&nbsp;- 70歲: 男 1.26m/s / 女 1.13m/s<br>
+            &nbsp;&nbsp;- 80/90歲: 男 0.97m/s / 女 0.94m/s<br>
+            • <b>預後提示:</b> 步速 <1.0 m/s 與較高發病率及死亡率有關<br>
+            <div style="margin-top:5px; font-size:0.75rem; color:#888;">Reference: Physiopedia</div>
         </div>
     `;
     document.getElementById('report').style.display = 'block';
@@ -199,10 +191,11 @@ function finishEval() {
     document.getElementById('sendEmail').onclick = () => {
         const email = therapistSelect.value === 'custom' ? customEmail.value : therapistSelect.value;
         const therapistName = therapistSelect.options[therapistSelect.selectedIndex].text;
-        const body = `10MWT 臨床報告\n病歷號: ${document.getElementById('patientId').value}\n治療師: ${therapistName}\n平均速度: ${avgSpeed.toFixed(2)} m/s\n步頻: ${avgCadence.toFixed(1)} steps/min\n步長: ${avgStepLen.toFixed(2)} m\n\n行走分級: ${strokeClass}`;
+        const body = `10MWT 臨床報告\n病歷號: ${document.getElementById('patientId').value}\n治療師: ${therapistName}\n平均速度: ${avgSpeed.toFixed(2)} m/s\n步頻: ${avgCadence.toFixed(1)} steps/min\n步長: ${avgStepLen.toFixed(2)} m\n分級: ${classification}`;
         window.location.href = `mailto:${email}?subject=10MWT_Report&body=${encodeURIComponent(body)}`;
     };
 }
 </script>
 </body>
 </html>
+ 
